@@ -5,7 +5,8 @@ from scipy.interpolate import interp1d
 from scipy.optimize import brentq
 from sklearn.metrics import auc, jaccard_score
 
-from ssvad_metrics.data_schema import VADAnnotation, VADFrame
+from ssvad_metrics.data_schema import VADAnnotation
+from ssvad_metrics.utils import iou_single
 
 
 def _get_traditional_tpr_fpr(
@@ -92,64 +93,75 @@ def traditional_criteria_masks(
 
 
 def _get_rbdr_fpr_tbdr(
-        pred_frms: List[VADFrame],
-        gt_frms: List[VADFrame],
+        preds: VADAnnotation,
+        gts: VADAnnotation,
         threshold: float,
         alpha: float = 0.1,
         beta: float = 0.1) -> tuple:
+    pred_frms = preds.frames
+    gt_frms = gts.frames
+    use_region_mtrc = preds.is_anomalous_regions_available and gts.is_anomalous_regions_available
+    use_track_mtrc = preds.is_anomaly_track_id_available and gts.is_anomaly_track_id_available
     ntp, tar = 0, 0
     nfp, n_fs = 0, 0
     gt_a_trks, pred_a_trks = {}, {}
     for pred_f, gt_f in zip(pred_frms, gt_frms):
-        track_id = gt_f.anomaly_track_id
-        if track_id >= 0:
-            # TODO: add behavior when no track_id (= None)
-            # TODO: add behavior when no anomalous_regions (= None)
-            gt_a_trk = gt_a_trks.setdefault(track_id, list())
-            gt_a_trk.append(gt_f)
-            pred_a_trk = pred_a_trks.setdefault(track_id, list())
-            pred_a_trk.append(pred_f)
         n_fs += 1
-        tar += len(gt_f.anomalous_regions)
-        for gt_ar in gt_f.anomalous_regions:
-            for pred_ar in pred_f.anomalous_regions:
-                if pred_ar.score < threshold:
-                    continue
-                iou = calc_iou(gt_ar.bounding_box, pred_ar.bounding_box)
-                if iou >= beta:
-                    ntp += 1
-                    break
-        for pred_ar in pred_f.anomalous_regions:
-            if pred_ar.score < threshold:
-                continue
-            for gt_ar in gt_f.anomalous_regions:
-                iou = calc_iou(gt_ar.bounding_box, pred_ar.bounding_box)
-                if iou >= beta:
-                    break
-            else:
-                # pred_bbox do not overlap enough with any gt_bbox
-                nfp += 1
-
-    nat = len(gt_a_trks)
-
-    ntpt = 0
-    for gt_a_trk, pred_a_trk in zip(gt_a_trks.values(), pred_a_trks.values()):
-        _tp = 0
-        for gt_f, pred_f in zip(gt_a_trk, pred_a_trk):
+        if use_track_mtrc:
+            track_id = gt_f.anomaly_track_id
+            if track_id >= 0:
+                gt_a_trk = gt_a_trks.setdefault(track_id, list())
+                gt_a_trk.append(gt_f)
+                pred_a_trk = pred_a_trks.setdefault(track_id, list())
+                pred_a_trk.append(pred_f)
+        if use_region_mtrc:
+            tar += len(gt_f.anomalous_regions)
             for gt_ar in gt_f.anomalous_regions:
                 for pred_ar in pred_f.anomalous_regions:
                     if pred_ar.score < threshold:
                         continue
-                    iou = calc_iou(gt_ar.bounding_box, pred_ar.bounding_box)
+                    iou = iou_single(gt_ar.bounding_box, pred_ar.bounding_box)
                     if iou >= beta:
-                        _tp += 1
+                        ntp += 1
                         break
-        if _tp >= (alpha * len(gt_a_trk)):
-            ntpt += 1
+            for pred_ar in pred_f.anomalous_regions:
+                if pred_ar.score < threshold:
+                    continue
+                for gt_ar in gt_f.anomalous_regions:
+                    iou = iou_single(gt_ar.bounding_box, pred_ar.bounding_box)
+                    if iou >= beta:
+                        break
+                else:
+                    # pred_bbox do not overlap enough with any gt_bbox
+                    nfp += 1
 
-    rbdr = ntp / tar
-    fpr = nfp / n_fs
-    tbdr = ntpt / nat
+    if use_track_mtrc:
+        nat = len(gt_a_trks)
+        ntpt = 0
+        for gt_a_trk, pred_a_trk in zip(gt_a_trks.values(), pred_a_trks.values()):
+            _tp = 0
+            for gt_f, pred_f in zip(gt_a_trk, pred_a_trk):
+                for gt_ar in gt_f.anomalous_regions:
+                    for pred_ar in pred_f.anomalous_regions:
+                        if pred_ar.score < threshold:
+                            continue
+                        iou = iou_single(gt_ar.bounding_box,
+                                         pred_ar.bounding_box)
+                        if iou >= beta:
+                            _tp += 1
+                            break
+            if _tp >= (alpha * len(gt_a_trk)):
+                ntpt += 1
+    if use_region_mtrc:
+        rbdr = ntp / tar
+        fpr = nfp / n_fs
+    else:
+        rbdr = None
+        fpr = None
+    if use_region_mtrc and use_track_mtrc:
+        tbdr = ntpt / nat
+    else:
+        tbdr = None
     return rbdr, fpr, tbdr
 
 
@@ -158,19 +170,26 @@ def current_criteria(
         gts: VADAnnotation,
         alpha: float = 0.1,
         beta: float = 0.1) -> dict:
-    anomaly_score_thresholds = np.linspace(1., 0., 1001)
-    rbdrs, fprs, tbdrs = [], [], []
-    for thr in anomaly_score_thresholds:
-        rbdr, fpr, tbdr = _get_rbdr_fpr_tbdr(
-            pred_frms=preds.frames,
-            gt_frms=gts.frames,
-            threshold=thr,
-            alpha=alpha,
-            beta=beta)
-        rbdrs.append(rbdr)
-        fprs.append(fpr)
-        tbdrs.append(tbdr)
-    result = {}
-    result["track_roc_auc"] = auc(fprs, tbdrs)
-    result["region_roc_auc"] = auc(fprs, rbdrs)
+    use_region_mtrc = preds.is_anomalous_regions_available and gts.is_anomalous_regions_available
+    use_track_mtrc = preds.is_anomaly_track_id_available and gts.is_anomaly_track_id_available
+    result = {
+        "region_roc_auc": None,
+        "track_roc_auc": None
+    }
+    if use_region_mtrc:
+        anomaly_score_thresholds = np.linspace(1., 0., 1001)
+        rbdrs, fprs, tbdrs = [], [], []
+        for thr in anomaly_score_thresholds:
+            rbdr, fpr, tbdr = _get_rbdr_fpr_tbdr(
+                preds=preds,
+                gts=gts,
+                threshold=thr,
+                alpha=alpha,
+                beta=beta)
+            rbdrs.append(rbdr)
+            fprs.append(fpr)
+            tbdrs.append(tbdr)
+        result["region_roc_auc"] = auc(fprs, rbdrs)
+        if use_track_mtrc:
+            result["track_roc_auc"] = auc(fprs, tbdrs)
     return result
