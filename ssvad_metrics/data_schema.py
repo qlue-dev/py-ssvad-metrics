@@ -122,7 +122,7 @@ class VADFrame(BaseModel):
     frame_level_score: Optional[confloat(ge=0., le=1.0)] = Field(
         ..., description=(
             "Set to None if anomalous region available. "
-            "If None, 'anomalous_regions' must not None. "
+            "If None, anomalous_regions must not None. "
             "For GT, 1 for Positive and 0 for Negative."))
     anomalous_regions: List[AnomalousRegion] = Field(
         ..., description=(
