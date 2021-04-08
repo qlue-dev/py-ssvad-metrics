@@ -17,7 +17,7 @@ def main(args):
         testset_dir = os.path.splitext(anno_fpath.name)[0][:-3]
         testset_path = os.path.join(args.dir, testset_dir)
         tif_files = list(Path(testset_path).glob("*.tif"))
-        img = cv2.imread(tif_files[0], cv2.IMREAD_COLOR)
+        img = cv2.imread(str(tif_files[0]), cv2.IMREAD_COLOR)
         img_h, img_w = img.shape[:2]
         # TODO: We should use py-ssvad-metrics data schema
         vad_anno = {
