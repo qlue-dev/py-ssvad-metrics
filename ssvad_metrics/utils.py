@@ -1,5 +1,29 @@
+from typing import Iterable, Tuple
+
+import cv2
 import numpy as np
-from typing import Iterable
+
+
+def bounding_boxes_to_float_mask(
+        bboxes: Iterable, scores: Iterable, frame_shape: Tuple[int]) -> np.ndarray:
+    """
+    Convert bounding boxes into a semantic mask with floating value.
+    """
+    _m = np.zeros(frame_shape, np.float32)
+    for bbox, score in zip(bboxes, scores):
+        cv2.rectangle(_m, bbox, color=score, thickness=-1)
+    return _m
+
+
+def anomalous_regions_to_float_mask(
+        anomalous_regions: list, frame_shape: Tuple[int]) -> np.ndarray:
+    """
+    Convert list of `AnomalousRegion` instances into a semantic mask with floating value.
+    """
+    _m = np.zeros(frame_shape, np.float32)
+    for _ar in anomalous_regions:
+        cv2.rectangle(_m, _ar.bounding_box, color=_ar.score, thickness=-1)
+    return _m
 
 
 def iou_single(bb1: Iterable, bb2: Iterable) -> float:

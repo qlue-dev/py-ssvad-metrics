@@ -101,11 +101,15 @@ from pydantic.fields import Field
 
 
 class AnomalousRegion(BaseModel):
-    bounding_box: conlist(float, min_items=4, max_items=4) = Field(
+    bounding_box: conlist(int, min_items=4, max_items=4) = Field(
         ..., description=(
             "[x left, y top, x right, y bottom]. "
-            "Can be an absolute type or a relative type."))
-    score: confloat(ge=0., le=1.0)
+            "Must be an absolute type value."))
+    score: confloat(ge=0., le=1.0) = Field(
+        ..., description=(
+            "Score for the region. "
+            "For GT, value must be 1.")
+    )
 
 
 class VADFrame(BaseModel):
@@ -129,9 +133,10 @@ class VADFrame(BaseModel):
 class VADAnnotation(BaseModel):
     frames_count: PositiveInt
     is_anomalous_regions_available: bool
-    is_anomalous_regions_absolute: bool
     is_anomaly_track_id_available: bool
     video_length_sec: Optional[PositiveFloat] = None
+    frame_width: PositiveInt
+    frame_height: PositiveInt
     frame_rate: Optional[PositiveFloat] = None
     frames: List[VADFrame] = Field(
         ..., description=("len(frames) == frames_count"))
