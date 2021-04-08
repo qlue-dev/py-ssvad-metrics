@@ -31,7 +31,7 @@ def main(args):
             "video_length_sec": None
         }
         annos_df = pd.read_csv(
-            anno_fpath, sep=" ", header=None, names=["filename", "T", "x", "y", "w", "h"])
+            anno_fpath, sep=" ", index_col=False, header=None, names=["filename", "T", "x", "y", "w", "h"])
         annos_df["frame_id"] = annos_df.apply(
             lambda x: int(os.path.splitext(x["filename"])[0]))
         annos_df = annos_df.sort_values("frame_id")
