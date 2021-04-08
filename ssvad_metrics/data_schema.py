@@ -5,6 +5,7 @@ from numpy.core.arrayprint import FloatingFormat
 from pydantic import (BaseModel, PositiveFloat, PositiveInt, ValidationError,
                       confloat, conlist, validator)
 from pydantic.fields import Field
+from pydantic.types import conint
 
 # def load_motchallenge(fname, **kwargs):
 #     """Load MOT challenge data.
@@ -113,7 +114,7 @@ class AnomalousRegion(BaseModel):
 
 
 class VADFrame(BaseModel):
-    frame_id: PositiveInt
+    frame_id: conint(gt=0)
     video_time_sec: Optional[PositiveFloat] = None
     anomaly_track_id: Optional[int] = Field(
         ..., description=(
@@ -131,12 +132,12 @@ class VADFrame(BaseModel):
 
 
 class VADAnnotation(BaseModel):
-    frames_count: PositiveInt
+    frames_count: conint(gt=0)
     is_anomalous_regions_available: bool
     is_anomaly_track_id_available: bool
     video_length_sec: Optional[PositiveFloat] = None
-    frame_width: PositiveInt
-    frame_height: PositiveInt
+    frame_width: conint(gt=0)
+    frame_height: conint(gt=0)
     frame_rate: Optional[PositiveFloat] = None
     frames: List[VADFrame] = Field(
         ..., description=("len(frames) == frames_count"))
