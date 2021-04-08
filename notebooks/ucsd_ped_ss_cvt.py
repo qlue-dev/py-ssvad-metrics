@@ -12,7 +12,7 @@ def main(args):
     anno_files = list(Path(args.annos).glob("*.txt"))
     assert len(anno_files) > 0
     if not os.path.exists(args.outdir):
-        os.makedirs(args.outdir, exists_ok=True)
+        os.makedirs(args.outdir, exist_ok=True)
     for anno_fpath in anno_files:
         testset_dir = os.path.splitext(anno_fpath.name)[0][:-3]
         testset_path = os.path.join(args.dir, testset_dir)
