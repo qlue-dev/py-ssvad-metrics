@@ -8,94 +8,95 @@ from sklearn.metrics import auc, jaccard_score
 from ssvad_metrics.data_schema import VADAnnotation
 from ssvad_metrics.utils import anomalous_regions_to_float_mask, iou_single
 
+NUM_POINTS = 101
 
-def _get_traditional_tpr_fpr_masks(
-        pred_masks: Union[np.ndarray, List[np.ndarray]],
-        gt_masks: Union[np.ndarray, List[np.ndarray]],
-        threshold: float) -> tuple:
-    f_tp, f_fp, f_ps, f_ns = 0, 0, 0, 0
-    p_tp, p_fp = 0, 0
-    for pred_m, gt_m in zip(pred_masks, gt_masks):
-        # GT
-        gt_m_bool = gt_m.astype(np.bool)
-        is_gt_m_pos = np.any(gt_m_bool)
-        # Frame-level calc
-        pred_m_pos = pred_m >= threshold
-        f_is_pred_pos = np.any(pred_m_pos)
-        # Counting f_tp, f_fp, f_ps, f_ns
-        if is_gt_m_pos:
-            f_ps += 1
-            # Frame-level
-            if f_is_pred_pos:
-                f_tp += 1
-            # Pixel-level
-            p_is_pred_pos = np.sum(np.multiply(pred_m_pos, gt_m_bool)) \
-                >= (0.4 * np.sum(gt_m_bool))
-            if p_is_pred_pos:
-                p_tp += 1
-        else:
-            f_ns += 1
-            # Frame-level and pixel-level has same criterion
-            if f_is_pred_pos:
-                f_fp += 1
-                p_fp += 1
-    f_tpr_thr = f_tp / f_ps
-    f_fpr_thr = f_fp / f_ns
-    p_tpr_thr = p_tp / f_ps
-    p_fpr_thr = p_fp / f_ns
-    return f_tpr_thr, f_fpr_thr, p_tpr_thr, p_fpr_thr
+# def _get_traditional_tpr_fpr_masks(
+#         pred_masks: Union[np.ndarray, List[np.ndarray]],
+#         gt_masks: Union[np.ndarray, List[np.ndarray]],
+#         threshold: float) -> tuple:
+#     f_tp, f_fp, f_ps, f_ns = 0, 0, 0, 0
+#     p_tp, p_fp = 0, 0
+#     for pred_m, gt_m in zip(pred_masks, gt_masks):
+#         # GT
+#         gt_m_bool = gt_m.astype(np.bool)
+#         is_gt_m_pos = np.any(gt_m_bool)
+#         # Frame-level calc
+#         pred_m_pos = pred_m >= threshold
+#         f_is_pred_pos = np.any(pred_m_pos)
+#         # Counting f_tp, f_fp, f_ps, f_ns
+#         if is_gt_m_pos:
+#             f_ps += 1
+#             # Frame-level
+#             if f_is_pred_pos:
+#                 f_tp += 1
+#             # Pixel-level
+#             p_is_pred_pos = np.sum(np.multiply(pred_m_pos, gt_m_bool)) \
+#                 >= (0.4 * np.sum(gt_m_bool))
+#             if p_is_pred_pos:
+#                 p_tp += 1
+#         else:
+#             f_ns += 1
+#             # Frame-level and pixel-level has same criterion
+#             if f_is_pred_pos:
+#                 f_fp += 1
+#                 p_fp += 1
+#     f_tpr_thr = f_tp / f_ps
+#     f_fpr_thr = f_fp / f_ns
+#     p_tpr_thr = p_tp / f_ps
+#     p_fpr_thr = p_fp / f_ns
+#     return f_tpr_thr, f_fpr_thr, p_tpr_thr, p_fpr_thr
 
 
-def traditional_criteria_masks(
-        pred_masks: Union[np.ndarray, List[np.ndarray]],
-        gt_masks: Union[np.ndarray, List[np.ndarray]]) -> dict:
-    """
-    Evaluate the single-scene video anomaly detection
-    using the traditional criteria.
+# def traditional_criteria_masks(
+#         pred_masks: Union[np.ndarray, List[np.ndarray]],
+#         gt_masks: Union[np.ndarray, List[np.ndarray]]) -> dict:
+#     """
+#     Evaluate the single-scene video anomaly detection
+#     using the traditional criteria.
 
-    Reference: 
-    B. Ramachandra, M. Jones and R. R. Vatsavai,
-    "A Survey of Single-Scene Video Anomaly Detection,"
-    in IEEE Transactions on Pattern Analysis and Machine Intelligence,
-    doi: 10.1109/TPAMI.2020.3040591.
+#     Reference:
+#     B. Ramachandra, M. Jones and R. R. Vatsavai,
+#     "A Survey of Single-Scene Video Anomaly Detection,"
+#     in IEEE Transactions on Pattern Analysis and Machine Intelligence,
+#     doi: 10.1109/TPAMI.2020.3040591.
 
-    PARAMETERS
-    ----------
-    pred_masks: Union[np.ndarray, List[np.ndarray]]
-        Semantic mask video anomaly prediction results of all frames.
-    gt_masks: Union[np.ndarray, List[np.ndarray]]
-        Semantic mask video anomaly ground-truths of all frames.
+#     PARAMETERS
+#     ----------
+#     pred_masks: Union[np.ndarray, List[np.ndarray]]
+#         Semantic mask video anomaly prediction results of all frames.
+#     gt_masks: Union[np.ndarray, List[np.ndarray]]
+#         Semantic mask video anomaly ground-truths of all frames.
 
-    RETURN
-    ------
-    dict
-        The results.
-    """
-    anomaly_score_thresholds = np.linspace(1., 0., 1001)
-    f_tprs, f_fprs, p_tprs, p_fprs = [], [], [], []
-    for thr in anomaly_score_thresholds:
-        f_tpr_thr, f_fpr_thr, p_tpr_thr, p_fpr_thr = _get_traditional_tpr_fpr_masks(
-            pred_masks, gt_masks, thr)
-        f_tprs.append(f_tpr_thr)
-        f_fprs.append(f_fpr_thr)
-        p_tprs.append(p_tpr_thr)
-        p_fprs.append(p_fpr_thr)
-    result = {}
-    # Frame-level ROC AUC
-    result["frame_roc_auc"] = auc(f_fprs, f_tprs)
-    # Frame-level EER
-    result["frame_eer"] = brentq(
-        lambda x: 1. - x - interp1d(f_fprs, f_tprs)(x), 0., 1.)
-    result["frame_thresh_at_eer"] = interp1d(
-        f_fprs, anomaly_score_thresholds)(result["frame_eer"])
-    # Pixel-level ROC AUC
-    result["pixel_roc_auc"] = auc(p_fprs, p_tprs)
-    # Pixel-level EER
-    result["pixel_eer"] = brentq(
-        lambda x: 1. - x - interp1d(p_fprs, p_tprs)(x), 0., 1.)
-    result["pixel_thresh_at_eer"] = interp1d(
-        p_fprs, anomaly_score_thresholds)(result["pixel_eer"])
-    return result
+#     RETURN
+#     ------
+#     dict
+#         The results.
+#     """
+#     anomaly_score_thresholds = np.linspace(1., 0., 1001)
+#     f_tprs, f_fprs, p_tprs, p_fprs = [], [], [], []
+#     for thr in anomaly_score_thresholds:
+#         f_tpr_thr, f_fpr_thr, p_tpr_thr, p_fpr_thr = _get_traditional_tpr_fpr_masks(
+#             pred_masks, gt_masks, thr)
+#         f_tprs.append(f_tpr_thr)
+#         f_fprs.append(f_fpr_thr)
+#         p_tprs.append(p_tpr_thr)
+#         p_fprs.append(p_fpr_thr)
+#     result = {}
+#     # Frame-level ROC AUC
+#     result["frame_roc_auc"] = auc(f_fprs, f_tprs)
+#     # Frame-level EER
+#     result["frame_eer"] = brentq(
+#         lambda x: 1. - x - interp1d(f_fprs, f_tprs)(x), 0., 1.)
+#     result["frame_thresh_at_eer"] = interp1d(
+#         f_fprs, anomaly_score_thresholds)(result["frame_eer"])
+#     # Pixel-level ROC AUC
+#     result["pixel_roc_auc"] = auc(p_fprs, p_tprs)
+#     # Pixel-level EER
+#     result["pixel_eer"] = brentq(
+#         lambda x: 1. - x - interp1d(p_fprs, p_tprs)(x), 0., 1.)
+#     result["pixel_thresh_at_eer"] = interp1d(
+#         p_fprs, anomaly_score_thresholds)(result["pixel_eer"])
+#     return result
 
 
 def _get_traditional_tpr_fpr(
@@ -204,7 +205,7 @@ def traditional_criteria(
         "pixel_thresh_at_eer": None
     }
     use_region_mtrc = preds.is_anomalous_regions_available and gts.is_anomalous_regions_available
-    anomaly_score_thresholds = np.linspace(1., 0., 1001)
+    anomaly_score_thresholds = np.linspace(1., 0., NUM_POINTS)
     f_tprs, f_fprs, p_tprs, p_fprs = [], [], [], []
     for thr in anomaly_score_thresholds:
         f_tpr_thr, f_fpr_thr, p_tpr_thr, p_fpr_thr = _get_traditional_tpr_fpr(
@@ -218,16 +219,16 @@ def traditional_criteria(
     # Frame-level EER
     result["frame_eer"] = brentq(
         lambda x: 1. - x - interp1d(f_fprs, f_tprs)(x), 0., 1.)
-    result["frame_thresh_at_eer"] = interp1d(
-        f_fprs, anomaly_score_thresholds)(result["frame_eer"])
+    result["frame_thresh_at_eer"] = float(interp1d(
+        f_fprs, anomaly_score_thresholds)(result["frame_eer"]))
     if use_region_mtrc:
         # Pixel-level ROC AUC
         result["pixel_roc_auc"] = auc(p_fprs, p_tprs)
         # Pixel-level EER
         result["pixel_eer"] = brentq(
             lambda x: 1. - x - interp1d(p_fprs, p_tprs)(x), 0., 1.)
-        result["pixel_thresh_at_eer"] = interp1d(
-            p_fprs, anomaly_score_thresholds)(result["pixel_eer"])
+        result["pixel_thresh_at_eer"] = float(interp1d(
+            p_fprs, anomaly_score_thresholds)(result["pixel_eer"]))
     return result
 
 
@@ -342,7 +343,7 @@ def current_criteria(
     use_region_mtrc = preds.is_anomalous_regions_available and gts.is_anomalous_regions_available
     use_track_mtrc = preds.is_anomaly_track_id_available and gts.is_anomaly_track_id_available
     if use_region_mtrc:
-        anomaly_score_thresholds = np.linspace(1., 0., 1001)
+        anomaly_score_thresholds = np.linspace(1., 0., NUM_POINTS)
         rbdrs, fprs, tbdrs = [], [], []
         for thr in anomaly_score_thresholds:
             rbdr, fpr, tbdr = _get_rbdr_fpr_tbdr(
