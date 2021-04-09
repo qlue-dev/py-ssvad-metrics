@@ -46,6 +46,7 @@ def main(args):
             if _f is None:
                 frame = {
                     "frame_id": frame_id,
+                    "frame_filename": None,
                     "anomaly_track_id": -1,
                     "frame_level_score": None,
                     "anomalous_regions": [],
@@ -67,6 +68,7 @@ def main(args):
                 ]
                 frame = {
                     "frame_id": frame_id,
+                    "frame_filename": _f.iloc[0]["filename"],
                     "anomaly_track_id": int(_f.iloc[0]["T"]),
                     "frame_level_score": None,
                     "anomalous_regions": anomalous_regions,
