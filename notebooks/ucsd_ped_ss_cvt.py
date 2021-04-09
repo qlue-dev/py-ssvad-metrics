@@ -35,11 +35,11 @@ def main(args):
         annos_df["frame_id"] = annos_df["filename"].apply(
             lambda x: int(os.path.splitext(x)[0]))
         annos_df = annos_df.sort_values("frame_id")
-        annos_df_grouped = annos_df.groupby("frame_id")
+        annos_df_grouped = {name: group for name, group in annos_df.groupby("frame_id")}
         for frame_id in range(vad_anno["frames_count"]):
             frame_id += 1  # since frame index start from 1
             try:
-                _f = annos_df_grouped.loc[frame_id]
+                _f = annos_df_grouped[frame_id]
             except KeyError:
                 _f = None
             # TODO: We should use py-ssvad-metrics data schema
@@ -63,7 +63,7 @@ def main(args):
                         ],
                         "score": 1.0
                     }
-                    for _, row in annos_df_grouped.iterrows()
+                    for _, row in _f.iterrows()
                 ]
                 frame = {
                     "frame_id": frame_id,
