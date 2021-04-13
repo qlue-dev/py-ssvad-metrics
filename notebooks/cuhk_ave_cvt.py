@@ -30,8 +30,6 @@ def main(args):
             frame_rate=cap.get(cv2.CAP_PROP_FPS),
             frames=[]
         )
-        print(_d)
-        vad_anno = ssvad_metrics.data_schema.VADAnnotation(**_d)
         annos_df = pd.read_csv(
             anno_fpath, sep=" ", index_col=False, header=None, names=["filename", "T", "x", "y", "w", "h"])
         annos_df["frame_id"] = annos_df["filename"].apply(
@@ -39,7 +37,7 @@ def main(args):
         annos_df = annos_df.sort_values("frame_id")
         annos_df_grouped = {
             name: group for name, group in annos_df.groupby("frame_id")}
-        for frame_id in range(vad_anno["frames_count"]):
+        for frame_id in range(_d["frames_count"]):
             frame_id += 1  # since frame index start from 1
             try:
                 _f = annos_df_grouped[frame_id]
@@ -75,10 +73,11 @@ def main(args):
                     frame_level_score=None,
                     anomalous_regions=anomalous_regions
                 )
-            vad_anno.frames.append(frame)
+            _d["frames"].append(frame)
         out = os.path.join(args.outdir, os.path.splitext(
             anno_fpath.name)[0] + ".json")
 
+        vad_anno = ssvad_metrics.data_schema.VADAnnotation(**_d)
         with open(out, "w") as fp:
             fp.write(vad_anno.json())
 
