@@ -4,7 +4,7 @@ from pathlib import Path
 
 import cv2
 import pandas as pd
-import ssvad_metrics
+from ssvad_metrics.data_schema import VADAnnotation, VADFrame, AnomalousRegion
 
 
 def main(args):
@@ -44,7 +44,7 @@ def main(args):
             except KeyError:
                 _f = None
             if _f is None:
-                frame = ssvad_metrics.data_schema.VADFrame(
+                frame = VADFrame(
                     frame_id=frame_id,
                     frame_filename=None,
                     video_time_sec=None,
@@ -54,7 +54,7 @@ def main(args):
                 )
             else:
                 anomalous_regions = [
-                    ssvad_metrics.data_schema.data_schema.AnomalousRegion(
+                    AnomalousRegion(
                         bounding_box=[
                             int(row["x"]),
                             int(row["y"]),
@@ -65,7 +65,7 @@ def main(args):
                     )
                     for _, row in _f.iterrows()
                 ]
-                frame = ssvad_metrics.data_schema.VADFrame(
+                frame = VADFrame(
                     frame_id=frame_id,
                     frame_filename=_f.iloc[0]["filename"],
                     video_time_sec=None,
@@ -77,7 +77,7 @@ def main(args):
         out = os.path.join(args.outdir, os.path.splitext(
             anno_fpath.name)[0] + ".json")
 
-        vad_anno = ssvad_metrics.data_schema.VADAnnotation(**_d)
+        vad_anno = VADAnnotation(**_d)
         with open(out, "w") as fp:
             fp.write(vad_anno.json())
 
