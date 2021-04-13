@@ -8,7 +8,7 @@ from sklearn.metrics import auc, jaccard_score
 from ssvad_metrics.data_schema import VADAnnotation
 from ssvad_metrics.utils import anomalous_regions_to_float_mask, iou_single
 
-NUM_POINTS = 101
+NUM_POINTS = 103
 
 # def _get_traditional_tpr_fpr_masks(
 #         pred_masks: Union[np.ndarray, List[np.ndarray]],
@@ -205,7 +205,7 @@ def traditional_criteria(
         "pixel_thresh_at_eer": None
     }
     use_region_mtrc = preds.is_anomalous_regions_available and gts.is_anomalous_regions_available
-    anomaly_score_thresholds = np.linspace(1., 0., NUM_POINTS)
+    anomaly_score_thresholds = np.linspace(1.01, -0.01, NUM_POINTS)
     f_tprs, f_fprs, p_tprs, p_fprs = [], [], [], []
     for thr in anomaly_score_thresholds:
         f_tpr_thr, f_fpr_thr, p_tpr_thr, p_fpr_thr = _get_traditional_tpr_fpr(
@@ -343,7 +343,7 @@ def current_criteria(
     use_region_mtrc = preds.is_anomalous_regions_available and gts.is_anomalous_regions_available
     use_track_mtrc = preds.is_anomaly_track_id_available and gts.is_anomaly_track_id_available
     if use_region_mtrc:
-        anomaly_score_thresholds = np.linspace(1., 0., NUM_POINTS)
+        anomaly_score_thresholds = np.linspace(1.01, -0.01, NUM_POINTS)
         rbdrs, fprs, tbdrs = [], [], []
         for thr in anomaly_score_thresholds:
             rbdr, fpr, tbdr = _get_rbdr_fpr_tbdr(
