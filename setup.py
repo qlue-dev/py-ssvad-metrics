@@ -15,13 +15,16 @@ setup(
     version=version,
     description='Single Scene Video Anomaly Detection Metrics',
     long_description=long_description,
-    url='https://qlue.ai',
+    long_description_content_type="text/markdown",
+    url='https://github.com/qlue-dev/py-ssvad-metrics',
     author='PT Qlue Performa Indonesia',
     author_email='developer@qlue.id',
     classifiers=[
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
         'Intended Audience :: Developers',
-        'Topic :: Scientific/Engineering :: Artificial Intelligence'
+        'Intended Audience :: Science/Research',
+        'Topic :: Scientific/Engineering :: Artificial Intelligence',
+        'Development Status :: 4 - Beta'
     ],
     packages=find_packages(),
     package_data={
