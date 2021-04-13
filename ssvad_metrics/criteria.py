@@ -1,6 +1,8 @@
 from typing import List, Union
 
+import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
 from scipy.interpolate import interp1d
 from scipy.optimize import brentq
 from sklearn.metrics import auc, jaccard_score
@@ -8,6 +10,7 @@ from sklearn.metrics import auc, jaccard_score
 from ssvad_metrics.data_schema import VADAnnotation
 from ssvad_metrics.utils import anomalous_regions_to_float_mask, iou_single
 
+sns.set()
 NUM_POINTS = 103
 
 # def _get_traditional_tpr_fpr_masks(
@@ -355,7 +358,15 @@ def current_criteria(
             rbdrs.append(rbdr)
             fprs.append(fpr)
             tbdrs.append(tbdr)
-        result["region_roc_auc"] = auc(fprs, rbdrs)
+        # recommendation calculating AUC for false positive rates per frame from 0 to 1.0
+        rbdrs_, fprs_, tbdrs_ = [], [], []
+        for rbdr, fpr, tbdr in zip(rbdrs, fprs, tbdrs):
+            if not (0.0 <= fpr <= 1.0):
+                continue
+            rbdrs_.append(rbdr)
+            fprs_.append(fpr)
+            tbdrs_.append(tbdr)
+        result["region_roc_auc"] = auc(fprs_, rbdrs_)
         if use_track_mtrc:
-            result["track_roc_auc"] = auc(fprs, tbdrs)
+            result["track_roc_auc"] = auc(fprs_, tbdrs_)
     return result
