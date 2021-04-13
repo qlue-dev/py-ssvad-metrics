@@ -2,3 +2,8 @@
 __pycache__
 *.json
 !tests/*.json
+*.egg-info
+dist
+build
+ssvad_metrics/VERSION
+.vscode
