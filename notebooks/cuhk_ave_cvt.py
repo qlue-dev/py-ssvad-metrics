@@ -46,6 +46,8 @@ def main(args):
             if _f is None:
                 frame = ssvad_metrics.data_schema.VADFrame(
                     frame_id=frame_id,
+                    frame_filename=None,
+                    video_time_sec=None,
                     anomaly_track_id=-1,
                     frame_level_score=None,
                     anomalous_regions=[]
@@ -66,6 +68,7 @@ def main(args):
                 frame = ssvad_metrics.data_schema.VADFrame(
                     frame_id=frame_id,
                     frame_filename=_f.iloc[0]["filename"],
+                    video_time_sec=None,
                     anomaly_track_id=int(_f.iloc[0]["T"]),
                     frame_level_score=None,
                     anomalous_regions=anomalous_regions
