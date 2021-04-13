@@ -30,7 +30,7 @@ def main(args):
         annos_df = pd.read_csv(
             anno_fpath, sep=" ", index_col=False, header=None, names=["filename", "T", "x", "y", "w", "h"])
         annos_df["frame_id"] = annos_df["filename"].apply(
-            lambda x: int(os.path.splitext(x)[0]))
+            lambda x: int(os.path.splitext(os.path.split(x)[1])[0]))
         annos_df = annos_df.sort_values("frame_id")
         annos_df_grouped = {
             name: group for name, group in annos_df.groupby("frame_id")}
