@@ -19,6 +19,7 @@ setup(
     author='PT Qlue Performa Indonesia',
     author_email='developer@qlue.id',
     classifiers=[
+        'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
         'Intended Audience :: Developers',
         'Topic :: Scientific/Engineering :: Artificial Intelligence'
     ],
