@@ -1,8 +1,6 @@
 from typing import List, Union
 
-import matplotlib.pyplot as plt
 import numpy as np
-import seaborn as sns
 from scipy.interpolate import interp1d
 from scipy.optimize import brentq
 from sklearn.metrics import auc, jaccard_score
@@ -10,7 +8,6 @@ from sklearn.metrics import auc, jaccard_score
 from ssvad_metrics.data_schema import VADAnnotation
 from ssvad_metrics.utils import anomalous_regions_to_float_mask, iou_single
 
-sns.set()
 NUM_POINTS = 103
 
 # def _get_traditional_tpr_fpr_masks(
