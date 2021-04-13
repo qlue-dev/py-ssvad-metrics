@@ -115,6 +115,7 @@ class AnomalousRegion(BaseModel):
 
 class VADFrame(BaseModel):
     frame_id: conint(gt=0)
+    frame_filename: Optional[str] = None
     video_time_sec: Optional[PositiveFloat] = None
     anomaly_track_id: Optional[int] = Field(
         ..., description=(
