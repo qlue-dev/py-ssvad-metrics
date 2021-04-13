@@ -20,7 +20,7 @@ def main(args):
         if not cap.isOpened():
             raise IOError("can not open")
         cap.set(cv2.CAP_PROP_POS_AVI_RATIO, 1)
-        vad_anno = ssvad_metrics.data_schema.VADAnnotation(
+        _d = dict(
             frames_count=int(cap.get(cv2.CAP_PROP_FRAME_COUNT)),
             is_anomalous_regions_available=True,
             is_anomaly_track_id_available=True,
@@ -30,6 +30,8 @@ def main(args):
             frame_rate=cap.get(cv2.CAP_PROP_FPS),
             frames=[]
         )
+        print(_d)
+        vad_anno = ssvad_metrics.data_schema.VADAnnotation(**_d)
         annos_df = pd.read_csv(
             anno_fpath, sep=" ", index_col=False, header=None, names=["filename", "T", "x", "y", "w", "h"])
         annos_df["frame_id"] = annos_df["filename"].apply(
