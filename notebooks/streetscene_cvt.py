@@ -8,7 +8,7 @@ from ssvad_metrics.data_schema import VADAnnotation, VADFrame, AnomalousRegion
 
 
 def main(args):
-    anno_files = list(Path(args.annos).rglob("*.txt"))
+    anno_files = list(Path(args.dir).rglob("*.txt"))
     assert len(anno_files) > 0
     if not os.path.exists(args.outdir):
         os.makedirs(args.outdir, exist_ok=True)
