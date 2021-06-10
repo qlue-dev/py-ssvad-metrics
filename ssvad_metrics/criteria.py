@@ -280,8 +280,10 @@ def _get_rbdr_fpr_tbdr(
         ntpt = 0
         for gt_a_trk, pred_a_trk in zip(gt_a_trks.values(), pred_a_trks.values()):
             _tp = 0
+            lk_size = 0
             for gt_f, pred_f in zip(gt_a_trk, pred_a_trk):
                 for gt_ar in gt_f.anomalous_regions:
+                    lk_size += 1
                     for pred_ar in pred_f.anomalous_regions:
                         if pred_ar.score < threshold:
                             continue
@@ -290,7 +292,7 @@ def _get_rbdr_fpr_tbdr(
                         if iou >= beta:
                             _tp += 1
                             break
-            if _tp >= (alpha * len(gt_a_trk)):
+            if _tp >= (alpha * lk_size):
                 ntpt += 1
     if use_region_mtrc:
         rbdr = ntp / tar
