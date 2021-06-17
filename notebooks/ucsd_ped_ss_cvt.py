@@ -1,11 +1,12 @@
 import argparse
-from genericpath import exists
 import json
 import os
 from pathlib import Path
 
 import cv2
 import pandas as pd
+from genericpath import exists
+from ssvad_metrics.data_schema import AnomalousRegion, VADAnnotation, VADFrame
 
 
 def main(args):
@@ -19,7 +20,6 @@ def main(args):
         tif_files = list(Path(testset_path).glob("*.tif"))
         img = cv2.imread(str(tif_files[0]), cv2.IMREAD_COLOR)
         img_h, img_w = img.shape[:2]
-        # TODO: We should use py-ssvad-metrics data schema
         vad_anno = {
             "frames_count": len(tif_files),
             "is_anomalous_regions_available": True,
@@ -35,50 +35,50 @@ def main(args):
         annos_df["frame_id"] = annos_df["filename"].apply(
             lambda x: int(os.path.splitext(x)[0]))
         annos_df = annos_df.sort_values("frame_id")
-        annos_df_grouped = {name: group for name, group in annos_df.groupby("frame_id")}
+        annos_df_grouped = {name: group for name,
+                            group in annos_df.groupby("frame_id")}
         for frame_id in range(vad_anno["frames_count"]):
             frame_id += 1  # since frame index start from 1
             try:
                 _f = annos_df_grouped[frame_id]
             except KeyError:
                 _f = None
-            # TODO: We should use py-ssvad-metrics data schema
             if _f is None:
-                frame = {
-                    "frame_id": frame_id,
-                    "frame_filename": None,
-                    "anomaly_track_id": -1,
-                    "frame_level_score": None,
-                    "anomalous_regions": [],
-                    "video_time_sec": None
-                }
+                frame = VADFrame(
+                    frame_id=frame_id,
+                    frame_filename="%03d.jpg" % int(frame_id),
+                    video_time_sec=None,
+                    anomaly_track_id=-1,
+                    frame_level_score=None,
+                    anomalous_regions=[]
+                )
             else:
-                # TODO: We should use py-ssvad-metrics data schema
                 anomalous_regions = [
-                    {
-                        "bounding_box": [
+                    AnomalousRegion(
+                        bounding_box=[
                             int(row["x"]),
                             int(row["y"]),
                             int(row["x"] + row["w"]),
                             int(row["y"] + row["h"])
                         ],
-                        "score": 1.0
-                    }
+                        score=1.0
+                    )
                     for _, row in _f.iterrows()
                 ]
-                frame = {
-                    "frame_id": frame_id,
-                    "frame_filename": _f.iloc[0]["filename"],
-                    "anomaly_track_id": int(_f.iloc[0]["T"]),
-                    "frame_level_score": None,
-                    "anomalous_regions": anomalous_regions,
-                    "video_time_sec": None
-                }
+                frame = VADFrame(
+                    frame_id=frame_id,
+                    frame_filename=_f.iloc[0]["filename"],
+                    video_time_sec=None,
+                    anomaly_track_id=int(_f.iloc[0]["T"]),
+                    frame_level_score=None,
+                    anomalous_regions=anomalous_regions
+                )
             vad_anno["frames"].append(frame)
         out = os.path.join(args.outdir, os.path.splitext(
             anno_fpath.name)[0] + ".json")
+        vad_anno = VADAnnotation(**vad_anno)
         with open(out, "w") as fp:
-            json.dump(vad_anno, fp)
+            json.dump(vad_anno.json(), fp)
 
 
 if __name__ == "__main__":
