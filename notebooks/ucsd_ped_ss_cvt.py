@@ -5,7 +5,6 @@ from pathlib import Path
 
 import cv2
 import pandas as pd
-from genericpath import exists
 from ssvad_metrics.data_schema import AnomalousRegion, VADAnnotation, VADFrame
 
 
