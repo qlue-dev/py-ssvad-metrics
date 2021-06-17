@@ -1,5 +1,4 @@
 import argparse
-import json
 import os
 from pathlib import Path
 
@@ -77,7 +76,7 @@ def main(args):
             anno_fpath.name)[0] + ".json")
         vad_anno = VADAnnotation(**vad_anno)
         with open(out, "w") as fp:
-            json.dump(vad_anno.json(), fp)
+            fp.write(vad_anno.json(), fp)
 
 
 if __name__ == "__main__":
