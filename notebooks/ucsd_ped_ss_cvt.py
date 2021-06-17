@@ -76,7 +76,7 @@ def main(args):
             anno_fpath.name)[0] + ".json")
         vad_anno = VADAnnotation(**vad_anno)
         with open(out, "w") as fp:
-            fp.write(vad_anno.json(), fp)
+            fp.write(vad_anno.json())
 
 
 if __name__ == "__main__":
