@@ -6,6 +6,7 @@ from pathlib import Path
 
 import cv2
 import pandas as pd
+import math
 
 
 def main(args):
@@ -57,10 +58,10 @@ def main(args):
                 anomalous_regions = [
                     {
                         "bounding_box": [
-                            int(row["x"]),
-                            int(row["y"]),
-                            int(row["x"] + row["w"]),
-                            int(row["y"] + row["h"])
+                            math.floor(row["x"]-row["w"]/2),
+                            math.floor(row["y"]-row["h"]/2),
+                            math.ceil(row["x"]+row["w"]/2),
+                            math.ceil(row["y"]+row["h"]/2)
                         ],
                         "score": 1.0
                     }
