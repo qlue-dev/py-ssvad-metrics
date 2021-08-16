@@ -4,6 +4,7 @@ from pathlib import Path
 
 import cv2
 import pandas as pd
+import math
 from ssvad_metrics.data_schema import VADAnnotation, VADFrame, AnomalousRegion
 
 
@@ -43,7 +44,7 @@ def main(args):
             if _f is None:
                 frame = VADFrame(
                     frame_id=frame_id,
-                    frame_filename=None,
+                    frame_filename="%05d.jpg" % int(frame_id),
                     video_time_sec=None,
                     anomaly_track_id=-1,
                     frame_level_score=None,
@@ -53,10 +54,10 @@ def main(args):
                 anomalous_regions = [
                     AnomalousRegion(
                         bounding_box=[
-                            int(row["x"]),
-                            int(row["y"]),
-                            int(row["x"] + row["w"]),
-                            int(row["y"] + row["h"])
+                            max(0, math.floor(row["x"]-row["w"]/2)),
+                            max(0, math.floor(row["y"]-row["h"]/2)),
+                            min(_d['frame_width'], math.ceil(row["x"]+row["w"]/2)),
+                            min(_d['frame_height'], math.ceil(row["y"]+row["h"]/2))
                         ],
                         score=1.0
                     )
