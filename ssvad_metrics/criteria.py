@@ -154,7 +154,7 @@ def _get_trad_calcs(
     return f_tp, f_fp, f_ps, f_ns, p_tp, p_fp
 
 
-class _PerThrCalcsAccum(BaseModel):
+class _TradPerThrCalcsAccum(BaseModel):
     f_tp: float = 0
     f_fp: float = 0
     f_ps: float = 0
@@ -187,7 +187,7 @@ class TraditionalCriteriaAccumulator:
         self.__anomaly_score_thresholds = np.linspace(1.01, -0.01, NUM_POINTS)
         self.__use_region_mtrc = []
         self.__per_thr_calcs_accum = {
-            thr: _PerThrCalcsAccum()
+            thr: _TradPerThrCalcsAccum()
             for thr in self.anomaly_score_thresholds
         }
 
