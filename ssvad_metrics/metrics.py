@@ -109,19 +109,20 @@ def accumulated_evaluate(
     trad_accum = TraditionalCriteriaAccumulator()
     cur_accum = CurrentCriteriaAccumulator(alpha=alpha, beta=beta)
     gt_files = {
-        str(v).replace("*%s.json" % gt_name_suffix, ""): v
+        str(v.name).replace("%s.json" % gt_name_suffix, ""): v
         for v in Path(gt_dir).glob("*%s.json" % gt_name_suffix)}
     pred_files = {
-        str(v).replace("*%s.json" % pred_name_suffix, ""): v
+        str(v.name).replace("%s.json" % pred_name_suffix, ""): v
         for v in Path(pred_dir).glob("*%s.json" % pred_name_suffix)}
     _omit_gt = set(gt_files.keys()) - set(pred_files.keys())
     for k in _omit_gt:
         del gt_files[k]
-        print("'%s' is omitted from groundtruth files")
+        print("'%s' is omitted from groundtruth files" % k)
     _omit_pred = set(pred_files.keys()) - set(gt_files.keys())
     for k in _omit_pred:
         del pred_files[k]
-        print("'%s' is omitted from prediction files")
+        print("'%s' is omitted from prediction files" % k)
+    print("Found %d gt-pred pairs" % len(gt_files))
     for k in gt_files:
         print("Processing '%s'" % k)
         with open(gt_files[k], "r") as fp:

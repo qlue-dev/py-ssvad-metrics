@@ -7,3 +7,5 @@ dist
 build
 ssvad_metrics/VERSION
 .vscode
+.pytest_cache
+.benchmarks
