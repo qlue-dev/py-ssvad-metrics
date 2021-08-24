@@ -44,7 +44,7 @@ def main(args):
             if _f is None:
                 frame = VADFrame(
                     frame_id=frame_id,
-                    frame_filename=None,
+                    frame_filename="%05d.jpg" % int(frame_id),
                     video_time_sec=None,
                     anomaly_track_id=-1,
                     frame_level_score=None,

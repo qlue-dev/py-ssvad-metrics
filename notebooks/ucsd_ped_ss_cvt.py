@@ -1,6 +1,4 @@
 import argparse
-from genericpath import exists
-import json
 import os
 from pathlib import Path
 
@@ -20,41 +18,39 @@ def main(args):
         tif_files = list(Path(testset_path).glob("*.tif"))
         img = cv2.imread(str(tif_files[0]), cv2.IMREAD_COLOR)
         img_h, img_w = img.shape[:2]
-        # TODO: We should use py-ssvad-metrics data schema
-        vad_anno = {
-            "frames_count": len(tif_files),
-            "is_anomalous_regions_available": True,
-            "is_anomaly_track_id_available": True,
-            "frame_width": img_w,
-            "frame_height": img_h,
-            "frames": [],
-            "frame_rate": None,
-            "video_length_sec": None
-        }
+        _d = dict(
+            frames_count=len(tif_files),
+            is_anomalous_regions_available=True,
+            is_anomaly_track_id_available=True,
+            video_length_sec=None,
+            frame_width=img_w,
+            frame_height=img_h,
+            frame_rate=None,
+            frames=[]
+        )
         annos_df = pd.read_csv(
             anno_fpath, sep=" ", index_col=False, header=None, names=["filename", "T", "x", "y", "w", "h"])
         annos_df["frame_id"] = annos_df["filename"].apply(
             lambda x: int(os.path.splitext(x)[0]))
         annos_df = annos_df.sort_values("frame_id")
-        annos_df_grouped = {name: group for name, group in annos_df.groupby("frame_id")}
-        for frame_id in range(vad_anno["frames_count"]):
+        annos_df_grouped = {name: group for name,
+                            group in annos_df.groupby("frame_id")}
+        for frame_id in range(_d["frames_count"]):
             frame_id += 1  # since frame index start from 1
             try:
                 _f = annos_df_grouped[frame_id]
             except KeyError:
                 _f = None
-            # TODO: We should use py-ssvad-metrics data schema
             if _f is None:
-                frame = {
-                    "frame_id": frame_id,
-                    "frame_filename": None,
-                    "anomaly_track_id": -1,
-                    "frame_level_score": None,
-                    "anomalous_regions": [],
-                    "video_time_sec": None
-                }
+                frame = VADFrame(
+                    frame_id=frame_id,
+                    frame_filename="%03d.jpg" % int(frame_id),
+                    video_time_sec=None,
+                    anomaly_track_id=-1,
+                    frame_level_score=None,
+                    anomalous_regions=[]
+                )
             else:
-                # TODO: We should use py-ssvad-metrics data schema
                 anomalous_regions = [
                     {
                         "bounding_box": [
@@ -63,23 +59,24 @@ def main(args):
                             math.ceil(row["x"]+row["w"]/2),
                             math.ceil(row["y"]+row["h"]/2)
                         ],
-                        "score": 1.0
-                    }
+                        score=1.0
+                    )
                     for _, row in _f.iterrows()
                 ]
-                frame = {
-                    "frame_id": frame_id,
-                    "frame_filename": _f.iloc[0]["filename"],
-                    "anomaly_track_id": int(_f.iloc[0]["T"]),
-                    "frame_level_score": None,
-                    "anomalous_regions": anomalous_regions,
-                    "video_time_sec": None
-                }
-            vad_anno["frames"].append(frame)
+                frame = VADFrame(
+                    frame_id=frame_id,
+                    frame_filename=_f.iloc[0]["filename"],
+                    video_time_sec=None,
+                    anomaly_track_id=int(_f.iloc[0]["T"]),
+                    frame_level_score=None,
+                    anomalous_regions=anomalous_regions
+                )
+            _d["frames"].append(frame)
         out = os.path.join(args.outdir, os.path.splitext(
             anno_fpath.name)[0] + ".json")
+        vad_anno = VADAnnotation(**_d)
         with open(out, "w") as fp:
-            json.dump(vad_anno, fp)
+            fp.write(vad_anno.json())
 
 
 if __name__ == "__main__":
