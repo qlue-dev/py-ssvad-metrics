@@ -1,7 +1,8 @@
 import json
 
-from ssvad_metrics.criteria import current_criteria, traditional_criteria
 from ssvad_metrics import data_schema
+from ssvad_metrics.criteria import (
+    TraditionalCriteriaAccumulator, CurrentCriteriaAccumulator)
 
 
 def evaluate(
@@ -48,8 +49,8 @@ def evaluate(
         raise ValueError("Frames count Pred != frames count GT")
     results = {}
     results.update(
-        traditional_criteria(pred_annos, gt_annos)
+        TraditionalCriteriaAccumulator()(pred_annos, gt_annos)
     )
     results.update(
-        current_criteria(pred_annos, gt_annos, alpha=alpha, beta=beta))
+        CurrentCriteriaAccumulator(alpha=alpha, beta=beta)(pred_annos, gt_annos))
     return results
