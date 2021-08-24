@@ -166,7 +166,7 @@ def _get_traditional_tpr_fpr(
 
 
 class TraditionalCriteriaAccumulator:
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Accumulator for evaluating the single-scene video anomaly detection
         using the traditional criteria.
@@ -262,6 +262,10 @@ class TraditionalCriteriaAccumulator:
                 lambda x: 1. - x - interp1d(self.p_fprs, self.p_tprs)(x), 0., 1.)
             self.__result["pixel_thresh_at_eer"] = float(interp1d(
                 self.p_fprs, self.anomaly_score_thresholds)(self.__result["pixel_eer"]))
+        else:
+            self.__result["pixel_roc_auc"] = None
+            self.__result["pixel_eer"] = None
+            self.__result["pixel_thresh_at_eer"] = None
         return self.__result
 
     def __call__(
@@ -373,65 +377,142 @@ def _get_rbdr_fpr_tbdr(
     return rbdr, fpr, tbdr
 
 
-def current_criteria(
-        preds: VADAnnotation,
-        gts: VADAnnotation,
-        alpha: float = 0.1,
-        beta: float = 0.1) -> dict:
-    """
-    Evaluate the single-scene video anomaly detection
-    using the "current" criteria.
+class CurrentCriteriaAccumulator:
+    def __init__(
+            self,
+            alpha: float = 0.1,
+            beta: float = 0.1) -> None:
+        """
+        Accumulator for evaluating the single-scene video anomaly detection
+        using the "current" criteria.
+        Metrics are calculated from accumulated RBDR, TBDR, and FPR.
 
-    Reference: 
-    B. Ramachandra, M. Jones and R. R. Vatsavai,
-    "A Survey of Single-Scene Video Anomaly Detection,"
-    in IEEE Transactions on Pattern Analysis and Machine Intelligence,
-    doi: 10.1109/TPAMI.2020.3040591.
+        Metrics can be only calculated if and only if all
+        of the predictions and groundtruths are containing
+        anomalous regions.
 
-    PARAMETERS
-    ----------
-    preds: VADAnnotation
-        Video anomaly detection prediction result from a video.
-    gts: VADAnnotation
-        Video anomaly detection groundtruth of a video.
-    alpha: float = 0.1
-        A threshold used in NTPT calculation. See reference for more information.
-    beta: float = 0.1
-        A threshold used in NTP, NFP, and NTPT calculations. See reference for more information.
+        Reference: 
+        B. Ramachandra, M. Jones and R. R. Vatsavai,
+        "A Survey of Single-Scene Video Anomaly Detection,"
+        in IEEE Transactions on Pattern Analysis and Machine Intelligence,
+        doi: 10.1109/TPAMI.2020.3040591.
 
-    RETURN
-    ------
-    Dict[str, Any]
-        Calculated performance metrics: "region_roc_auc" and "track_roc_auc".
-    """
-    result = {
-        "region_roc_auc": None,
-        "track_roc_auc": None
-    }
-    use_region_mtrc = preds.is_anomalous_regions_available and gts.is_anomalous_regions_available
-    use_track_mtrc = preds.is_anomaly_track_id_available and gts.is_anomaly_track_id_available
-    if use_region_mtrc:
-        anomaly_score_thresholds = np.linspace(1.01, -0.01, NUM_POINTS)
-        rbdrs, fprs, tbdrs = [], [], []
-        for thr in anomaly_score_thresholds:
+        PARAMETERS
+        ----------
+        alpha: float = 0.1
+            A threshold used in NTPT calculation. See reference for more information.
+        beta: float = 0.1
+            A threshold used in NTP, NFP, and NTPT calculations. See reference for more information.
+        """
+        self.__alpha = alpha
+        self.__beta = beta
+        self.anomaly_score_thresholds = np.linspace(1.01, -0.01, NUM_POINTS)
+        self.rbdrs, self.fprs, self.tbdrs = [], [], []
+        self.__result = {
+            "region_roc_auc": None,
+            "track_roc_auc": None
+        }
+        self.__use_region_mtrc = []
+        self.__use_track_mtrc = []
+
+    @property
+    def alpha(self) -> float:
+        return self.__alpha
+
+    @property
+    def beta(self) -> float:
+        return self.__beta
+
+    def update(
+            self,
+            preds: VADAnnotation,
+            gts: VADAnnotation) -> None:
+        """
+        Update the accumulator with more prediction and groundtruth data pair.
+
+        PARAMETERS
+        ----------
+        preds: VADAnnotation
+            Video anomaly detection prediction result from a video.
+        gts: VADAnnotation
+            Video anomaly detection groundtruth of a video.
+        """
+        use_region_mtrc = preds.is_anomalous_regions_available and gts.is_anomalous_regions_available
+        self.__use_region_mtrc.append(use_region_mtrc)
+        use_track_mtrc = preds.is_anomaly_track_id_available and gts.is_anomaly_track_id_available
+        self.__use_track_mtrc.append(use_track_mtrc)
+        for thr in self.anomaly_score_thresholds:
             rbdr, fpr, tbdr = _get_rbdr_fpr_tbdr(
                 preds=preds,
                 gts=gts,
                 threshold=thr,
-                alpha=alpha,
-                beta=beta)
-            rbdrs.append(rbdr)
-            fprs.append(fpr)
-            tbdrs.append(tbdr)
+                alpha=self.alpha,
+                beta=self.beta)
+            self.rbdrs.append(rbdr)
+            self.fprs.append(fpr)
+            self.tbdrs.append(tbdr)
+
+    def summarize(self) -> dict:
+        """
+        Summarize the accumulator.
+
+        Track-based metrics can be only calculated only if all
+        of groundtruths are containing anomalous tracks. 
+        Anomalous tracks not required in predictions.
+
+        RETURN
+        ------
+        Dict[str, Any]
+            Calculated performance metrics: "region_roc_auc" and "track_roc_auc".
+        """
+        if not (self.fprs and all(self.__use_region_mtrc)):
+            return {
+                "region_roc_auc": None,
+                "track_roc_auc": None
+            }
+        # sort x axis
+        fprs_sorted_indices = np.argsort(self.fprs)
+        self.rbdrs = [self.rbdrs[i] for i in fprs_sorted_indices]
+        self.fprs = [self.fprs[i] for i in fprs_sorted_indices]
+        self.tbdrs = [self.tbdrs[i] for i in fprs_sorted_indices]
         # recommendation calculating AUC for false positive rates per frame from 0 to 1.0
         rbdrs_, fprs_, tbdrs_ = [], [], []
-        for rbdr, fpr, tbdr in zip(rbdrs, fprs, tbdrs):
+        for rbdr, fpr, tbdr in zip(self.rbdrs, self.fprs, self.tbdrs):
             if not (0.0 <= fpr <= 1.0):
                 continue
             rbdrs_.append(rbdr)
             fprs_.append(fpr)
             tbdrs_.append(tbdr)
-        result["region_roc_auc"] = auc(fprs_, rbdrs_)
-        if use_track_mtrc:
-            result["track_roc_auc"] = auc(fprs_, tbdrs_)
-    return result
+        self.__result["region_roc_auc"] = auc(fprs_, rbdrs_)
+        if self.__use_track_mtrc:
+            self.__result["track_roc_auc"] = auc(fprs_, tbdrs_)
+        else:
+            self.__result["track_roc_auc"] = None
+        return self.__result
+
+    def __call__(
+            self,
+            preds: VADAnnotation,
+            gts: VADAnnotation) -> dict:
+        """
+        Update the accumulator with data and summarize the accumulator.
+        Useful when there are only single prediction and groundtruth data pair.
+
+        Pixel-level metrics only calculated if and only if all
+        of the predictions and groundtruths are containing
+        anomalous regions.
+
+        PARAMETERS
+        ----------
+        preds: VADAnnotation
+            Video anomaly detection prediction result from a video.
+        gts: VADAnnotation
+            Video anomaly detection groundtruth of a video.
+
+        RETURN
+        ------
+        Dict[str, Any]
+            Calculated performance metrics: "region_roc_auc" and "track_roc_auc".
+        """
+        self.update(preds=preds, gts=gts)
+        return self.summarize()
