@@ -66,9 +66,10 @@ def accumulated_evaluate(
         beta: float = 0.1) -> dict:
     """
     Evaluate the single-scene video anomaly detection
-    using the traditional criteria, and
-    using the "current" criteria.
-    Useful when the video is splitted into multiple clips,
+    using the traditional criteria, and using the "current" criteria.
+
+    Useful when the single-scene video is splitted into multiple clips
+    and predicted by a single model with a single configuration,
     hence there are multiple JSON files, but single
     aggregated/accumulated calculation is required.
     Both directory must contain exactly same files count and file names

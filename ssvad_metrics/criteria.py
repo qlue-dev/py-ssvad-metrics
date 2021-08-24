@@ -1,6 +1,7 @@
 from typing import List, Optional, Union
 
 import numpy as np
+from pydantic import BaseModel
 from scipy.interpolate import interp1d
 from scipy.optimize import brentq
 from sklearn.metrics import auc, jaccard_score
@@ -98,12 +99,8 @@ NUM_POINTS = 103
 #         p_fprs, anomaly_score_thresholds)(result["pixel_eer"])
 #     return result
 
-
-def _get_traditional_tpr_fpr(
-        preds: VADAnnotation,
-        gts: VADAnnotation,
-        threshold: float) -> tuple:
-    use_region_mtrc = preds.is_anomalous_regions_available and gts.is_anomalous_regions_available
+def _get_trad_calcs(
+        preds: VADAnnotation, gts: VADAnnotation, threshold: float, use_region_mtrc: bool):
     f_tp, f_fp, f_ps, f_ns = 0, 0, 0, 0
     p_tp, p_fp = 0, 0
     if use_region_mtrc:
@@ -154,15 +151,16 @@ def _get_traditional_tpr_fpr(
                 # Frame-level
                 if f_is_pred_pos:
                     f_fp += 1
-    f_tpr_thr = f_tp / f_ps
-    f_fpr_thr = f_fp / f_ns
-    if use_region_mtrc:
-        p_tpr_thr = p_tp / f_ps
-        p_fpr_thr = p_fp / f_ns
-    else:
-        p_tpr_thr = None
-        p_fpr_thr = None
-    return f_tpr_thr, f_fpr_thr, p_tpr_thr, p_fpr_thr
+    return f_tp, f_fp, f_ps, f_ns, p_tp, p_fp
+
+
+class _PerThrCalcsAccum(BaseModel):
+    f_tp: float = 0
+    f_fp: float = 0
+    f_ps: float = 0
+    f_ns: float = 0
+    p_tp: float = 0
+    p_fp: float = 0
 
 
 class TraditionalCriteriaAccumulator:
@@ -186,9 +184,16 @@ class TraditionalCriteriaAccumulator:
             "pixel_eer": None,
             "pixel_thresh_at_eer": None
         }
-        self.anomaly_score_thresholds = np.linspace(1.01, -0.01, NUM_POINTS)
-        self.f_tprs, self.f_fprs, self.p_tprs, self.p_fprs = [], [], [], []
+        self.__anomaly_score_thresholds = np.linspace(1.01, -0.01, NUM_POINTS)
         self.__use_region_mtrc = []
+        self.__per_thr_calcs_accum = {
+            thr: _PerThrCalcsAccum()
+            for thr in self.anomaly_score_thresholds
+        }
+
+    @property
+    def anomaly_score_thresholds(self):
+        return self.__anomaly_score_thresholds
 
     def update(
             self,
@@ -207,12 +212,15 @@ class TraditionalCriteriaAccumulator:
         use_region_mtrc = preds.is_anomalous_regions_available and gts.is_anomalous_regions_available
         self.__use_region_mtrc.append(use_region_mtrc)
         for thr in self.anomaly_score_thresholds:
-            f_tpr_thr, f_fpr_thr, p_tpr_thr, p_fpr_thr = _get_traditional_tpr_fpr(
-                preds, gts, thr)
-            self.f_tprs.append(f_tpr_thr)
-            self.f_fprs.append(f_fpr_thr)
-            self.p_tprs.append(p_tpr_thr)
-            self.p_fprs.append(p_fpr_thr)
+            f_tp, f_fp, f_ps, f_ns, p_tp, p_fp = _get_trad_calcs(
+                preds, gts, thr, use_region_mtrc)
+            _accum = self.__per_thr_calcs_accum[thr]
+            _accum.f_tp += f_tp
+            _accum.f_fp += f_fp
+            _accum.f_ps += f_ps
+            _accum.f_ns += f_ns
+            _accum.p_tp += p_tp
+            _accum.p_fp += p_fp
 
     def summarize(self) -> dict:
         """
@@ -233,35 +241,45 @@ class TraditionalCriteriaAccumulator:
             "pixel_eer", and
             "pixel_thresh_at_eer".
         """
-        if not self.f_fprs:
+        if not self.__per_thr_calcs_accum:
             return self.__result
-        # sort x axis
-        f_sorted_indices = np.argsort(self.f_fprs)
-        self.f_fprs = [
-            self.f_fprs[i] for i in f_sorted_indices]
-        self.f_tprs = [
-            self.f_tprs[i] for i in f_sorted_indices]
+        # calculate
+        f_tprs, f_fprs, p_tprs, p_fprs = [], [], [], []
+        for thr in self.anomaly_score_thresholds:
+            _accum = self.__per_thr_calcs_accum[thr]
+            f_tpr_thr = _accum.f_tp / _accum.f_ps
+            f_fpr_thr = _accum.f_fp / _accum.f_ns
+            if all(self.__use_region_mtrc):
+                p_tpr_thr = _accum.p_tp / _accum.f_ps
+                p_fpr_thr = _accum.p_fp / _accum.f_ns
+            else:
+                p_tpr_thr = None
+                p_fpr_thr = None
+            f_tprs.append(f_tpr_thr)
+            f_fprs.append(f_fpr_thr)
+            p_tprs.append(p_tpr_thr)
+            p_fprs.append(p_fpr_thr)
         # Frame-level ROC AUC
-        self.__result["frame_roc_auc"] = auc(self.f_fprs, self.f_tprs)
+        self.__result["frame_roc_auc"] = auc(f_fprs, f_tprs)
         # Frame-level EER
         self.__result["frame_eer"] = brentq(
-            lambda x: 1. - x - interp1d(self.f_fprs, self.f_tprs)(x), 0., 1.)
+            lambda x: 1. - x - interp1d(f_fprs, f_tprs)(x), 0., 1.)
         self.__result["frame_thresh_at_eer"] = float(interp1d(
-            self.f_fprs, self.anomaly_score_thresholds)(self.__result["frame_eer"]))
+            f_fprs, self.anomaly_score_thresholds)(self.__result["frame_eer"]))
         if all(self.__use_region_mtrc):
             # sort x axis
-            f_sorted_indices = np.argsort(self.p_fprs)
-            self.p_fprs = [
-                self.p_fprs[i] for i in f_sorted_indices]
-            self.p_tprs = [
-                self.p_tprs[i] for i in f_sorted_indices]
+            f_sorted_indices = np.argsort(p_fprs)
+            p_fprs = [
+                p_fprs[i] for i in f_sorted_indices]
+            p_tprs = [
+                p_tprs[i] for i in f_sorted_indices]
             # Pixel-level ROC AUC
-            self.__result["pixel_roc_auc"] = auc(self.p_fprs, self.p_tprs)
+            self.__result["pixel_roc_auc"] = auc(p_fprs, p_tprs)
             # Pixel-level EER
             self.__result["pixel_eer"] = brentq(
-                lambda x: 1. - x - interp1d(self.p_fprs, self.p_tprs)(x), 0., 1.)
+                lambda x: 1. - x - interp1d(p_fprs, p_tprs)(x), 0., 1.)
             self.__result["pixel_thresh_at_eer"] = float(interp1d(
-                self.p_fprs, self.anomaly_score_thresholds)(self.__result["pixel_eer"]))
+                p_fprs, self.anomaly_score_thresholds)(self.__result["pixel_eer"]))
         else:
             self.__result["pixel_roc_auc"] = None
             self.__result["pixel_eer"] = None
