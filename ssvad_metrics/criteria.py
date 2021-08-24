@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Optional, Union
 
 import numpy as np
 from scipy.interpolate import interp1d
@@ -165,71 +165,137 @@ def _get_traditional_tpr_fpr(
     return f_tpr_thr, f_fpr_thr, p_tpr_thr, p_fpr_thr
 
 
-def traditional_criteria(
-        preds: VADAnnotation,
-        gts: VADAnnotation) -> dict:
-    """
-    Evaluate the single-scene video anomaly detection
-    using the traditional criteria.
+class TraditionalCriteriaAccumulator:
+    def __init__(self):
+        """
+        Accumulator for evaluating the single-scene video anomaly detection
+        using the traditional criteria.
+        Metrics are calculated from accumulated TPR and FPR.
 
-    Reference: 
-    B. Ramachandra, M. Jones and R. R. Vatsavai,
-    "A Survey of Single-Scene Video Anomaly Detection,"
-    in IEEE Transactions on Pattern Analysis and Machine Intelligence,
-    doi: 10.1109/TPAMI.2020.3040591.
+        Reference: 
+        B. Ramachandra, M. Jones and R. R. Vatsavai,
+        "A Survey of Single-Scene Video Anomaly Detection,"
+        in IEEE Transactions on Pattern Analysis and Machine Intelligence,
+        doi: 10.1109/TPAMI.2020.3040591.
+        """
+        self.__result = {
+            "frame_roc_auc": None,
+            "frame_eer": None,
+            "frame_thresh_at_eer": None,
+            "pixel_roc_auc": None,
+            "pixel_eer": None,
+            "pixel_thresh_at_eer": None
+        }
+        self.anomaly_score_thresholds = np.linspace(1.01, -0.01, NUM_POINTS)
+        self.f_tprs, self.f_fprs, self.p_tprs, self.p_fprs = [], [], [], []
+        self.__use_region_mtrc = []
 
-    PARAMETERS
-    ----------
-    preds: VADAnnotation
-        Video anomaly detection prediction result from a video.
-    gts: VADAnnotation
-        Video anomaly detection groundtruth of a video.
+    def update(
+            self,
+            preds: VADAnnotation,
+            gts: VADAnnotation) -> None:
+        """
+        Update the accumulator with more prediction and groundtruth data pair.
 
-    RETURN
-    ------
-    Dict[str, Any]
-        Calculated performance metrics: 
-        "frame_roc_auc",
-        "frame_eer",
-        "frame_thresh_at_eer",
-        "pixel_roc_auc",
-        "pixel_eer", and
-        "pixel_thresh_at_eer".
-    """
-    result = {
-        "frame_roc_auc": None,
-        "frame_eer": None,
-        "frame_thresh_at_eer": None,
-        "pixel_roc_auc": None,
-        "pixel_eer": None,
-        "pixel_thresh_at_eer": None
-    }
-    use_region_mtrc = preds.is_anomalous_regions_available and gts.is_anomalous_regions_available
-    anomaly_score_thresholds = np.linspace(1.01, -0.01, NUM_POINTS)
-    f_tprs, f_fprs, p_tprs, p_fprs = [], [], [], []
-    for thr in anomaly_score_thresholds:
-        f_tpr_thr, f_fpr_thr, p_tpr_thr, p_fpr_thr = _get_traditional_tpr_fpr(
-            preds, gts, thr)
-        f_tprs.append(f_tpr_thr)
-        f_fprs.append(f_fpr_thr)
-        p_tprs.append(p_tpr_thr)
-        p_fprs.append(p_fpr_thr)
-    # Frame-level ROC AUC
-    result["frame_roc_auc"] = auc(f_fprs, f_tprs)
-    # Frame-level EER
-    result["frame_eer"] = brentq(
-        lambda x: 1. - x - interp1d(f_fprs, f_tprs)(x), 0., 1.)
-    result["frame_thresh_at_eer"] = float(interp1d(
-        f_fprs, anomaly_score_thresholds)(result["frame_eer"]))
-    if use_region_mtrc:
-        # Pixel-level ROC AUC
-        result["pixel_roc_auc"] = auc(p_fprs, p_tprs)
-        # Pixel-level EER
-        result["pixel_eer"] = brentq(
-            lambda x: 1. - x - interp1d(p_fprs, p_tprs)(x), 0., 1.)
-        result["pixel_thresh_at_eer"] = float(interp1d(
-            p_fprs, anomaly_score_thresholds)(result["pixel_eer"]))
-    return result
+        PARAMETERS
+        ----------
+        preds: VADAnnotation
+            Video anomaly detection prediction result from a video.
+        gts: VADAnnotation
+            Video anomaly detection groundtruth of a video.
+        """
+        use_region_mtrc = preds.is_anomalous_regions_available and gts.is_anomalous_regions_available
+        self.__use_region_mtrc.append(use_region_mtrc)
+        for thr in self.anomaly_score_thresholds:
+            f_tpr_thr, f_fpr_thr, p_tpr_thr, p_fpr_thr = _get_traditional_tpr_fpr(
+                preds, gts, thr)
+            self.f_tprs.append(f_tpr_thr)
+            self.f_fprs.append(f_fpr_thr)
+            self.p_tprs.append(p_tpr_thr)
+            self.p_fprs.append(p_fpr_thr)
+
+    def summarize(self) -> dict:
+        """
+        Summarize the accumulator.
+
+        Pixel-level metrics only calculated if and only if all
+        of the predictions and groundtruths are containing
+        anomalous regions.
+
+        RETURN
+        ------
+        Dict[str, Any]
+            Calculated performance metrics: 
+            "frame_roc_auc",
+            "frame_eer",
+            "frame_thresh_at_eer",
+            "pixel_roc_auc",
+            "pixel_eer", and
+            "pixel_thresh_at_eer".
+        """
+        if not self.f_fprs:
+            return self.__result
+        # sort x axis
+        f_sorted_indices = np.argsort(self.f_fprs)
+        self.f_fprs = [
+            self.f_fprs[i] for i in f_sorted_indices]
+        self.f_tprs = [
+            self.f_tprs[i] for i in f_sorted_indices]
+        # Frame-level ROC AUC
+        self.__result["frame_roc_auc"] = auc(self.f_fprs, self.f_tprs)
+        # Frame-level EER
+        self.__result["frame_eer"] = brentq(
+            lambda x: 1. - x - interp1d(self.f_fprs, self.f_tprs)(x), 0., 1.)
+        self.__result["frame_thresh_at_eer"] = float(interp1d(
+            self.f_fprs, self.anomaly_score_thresholds)(self.__result["frame_eer"]))
+        if all(self.__use_region_mtrc):
+            # sort x axis
+            f_sorted_indices = np.argsort(self.p_fprs)
+            self.p_fprs = [
+                self.p_fprs[i] for i in f_sorted_indices]
+            self.p_tprs = [
+                self.p_tprs[i] for i in f_sorted_indices]
+            # Pixel-level ROC AUC
+            self.__result["pixel_roc_auc"] = auc(self.p_fprs, self.p_tprs)
+            # Pixel-level EER
+            self.__result["pixel_eer"] = brentq(
+                lambda x: 1. - x - interp1d(self.p_fprs, self.p_tprs)(x), 0., 1.)
+            self.__result["pixel_thresh_at_eer"] = float(interp1d(
+                self.p_fprs, self.anomaly_score_thresholds)(self.__result["pixel_eer"]))
+        return self.__result
+
+    def __call__(
+            self,
+            preds: VADAnnotation,
+            gts: VADAnnotation) -> dict:
+        """
+        Update the accumulator with data and summarize the accumulator.
+        Useful when there are only single prediction and groundtruth data pair.
+
+        Pixel-level metrics only calculated if and only if all
+        of the predictions and groundtruths are containing
+        anomalous regions.
+
+        PARAMETERS
+        ----------
+        preds: VADAnnotation
+            Video anomaly detection prediction result from a video.
+        gts: VADAnnotation
+            Video anomaly detection groundtruth of a video.
+
+        RETURN
+        ------
+        Dict[str, Any]
+            Calculated performance metrics: 
+            "frame_roc_auc",
+            "frame_eer",
+            "frame_thresh_at_eer",
+            "pixel_roc_auc",
+            "pixel_eer", and
+            "pixel_thresh_at_eer".
+        """
+        self.update(preds=preds, gts=gts)
+        return self.summarize()
 
 
 def _get_rbdr_fpr_tbdr(
