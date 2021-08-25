@@ -19,7 +19,7 @@ pip install py-ssvad-metrics
 1. Prepare ground-truth JSON file and prediction JSON file. Examples are in the `tests` folder.
 1. For UCSD Pedestrian 1 and 2 datasets, CUHK Avenue dataset, and Street Scene dataset,
 we provided scripts for converting ground-truth annotation files from Street Scene dataset. Download link is provided in the paper [http://www.merl.com/demos/video-anomaly-detection].
-1. For single groundtruth and prediction file pair:
+1. Example usage for single groundtruth and prediction file pair:
 
     ```python
     import ssvad_metrics
@@ -28,7 +28,7 @@ we provided scripts for converting ground-truth annotation files from Street Sce
         "tests/pred_examples/Test001_pred.json")
     ```
 
-1. For multiple groundtruth and prediction file pairs:
+1. Example usage for multiple groundtruth and prediction file pairs:
 
     ```python
     import ssvad_metrics

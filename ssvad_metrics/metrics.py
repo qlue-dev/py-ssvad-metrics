@@ -1,9 +1,12 @@
 import json
+import logging
 from pathlib import Path
 
 from ssvad_metrics import data_schema
 from ssvad_metrics.criteria import (CurrentCriteriaAccumulator,
                                     TraditionalCriteriaAccumulator)
+
+logger = logging.getLogger()
 
 
 def evaluate(
@@ -123,9 +126,10 @@ def accumulated_evaluate(
     for k in _omit_pred:
         del pred_files[k]
         print("'%s' is omitted from prediction files" % k)
-    print("Found %d gt-pred pairs" % len(gt_files))
+    logging.info(
+        "Obtained %d groundtruth and prediction file pairs", len(gt_files))
     for k in gt_files:
-        print("Processing '%s'" % k)
+        logging.info("Processing '%s'", k)
         with open(gt_files[k], "r") as fp:
             gt_annos = data_schema.data_parser(json.load(fp))
         with open(pred_files[k], "r") as fp:
