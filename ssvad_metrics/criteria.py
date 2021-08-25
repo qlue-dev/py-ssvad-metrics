@@ -100,7 +100,7 @@ NUM_POINTS = 103
 #     return result
 
 def _get_trad_calcs(
-        preds: VADAnnotation, gts: VADAnnotation, threshold: float, use_region_mtrc: bool):
+        preds: VADAnnotation, gts: VADAnnotation, threshold: float, use_region_mtrc: bool) -> tuple:
     f_tp, f_fp, f_ps, f_ns = 0, 0, 0, 0
     p_tp, p_fp = 0, 0
     if use_region_mtrc:
@@ -241,7 +241,8 @@ class TraditionalCriteriaAccumulator:
             "pixel_eer", and
             "pixel_thresh_at_eer".
         """
-        if not self.__per_thr_calcs_accum:
+        if not self.__use_region_mtrc:
+            # no any update
             return self.__result
         # calculate
         f_tprs, f_fprs, p_tprs, p_fprs = [], [], [], []
@@ -320,16 +321,16 @@ class TraditionalCriteriaAccumulator:
         return self.summarize()
 
 
-def _get_rbdr_fpr_tbdr(
+def _get_cur_calcs(
         preds: VADAnnotation,
         gts: VADAnnotation,
         threshold: float,
-        alpha: float = 0.1,
-        beta: float = 0.1) -> tuple:
+        alpha: float,
+        beta: float,
+        use_region_mtrc: bool,
+        use_track_mtrc: bool) -> tuple:
     pred_frms = preds.frames
     gt_frms = gts.frames
-    use_region_mtrc = preds.is_anomalous_regions_available and gts.is_anomalous_regions_available
-    use_track_mtrc = preds.is_anomaly_track_id_available and gts.is_anomaly_track_id_available
     ntp, tar = 0, 0
     nfp, n_fs = 0, 0
     gt_a_trks, pred_a_trks = {}, {}
@@ -382,17 +383,16 @@ def _get_rbdr_fpr_tbdr(
                             break
             if _tp >= (alpha * lk_size):
                 ntpt += 1
-    if use_region_mtrc:
-        rbdr = ntp / tar
-        fpr = nfp / n_fs
-    else:
-        rbdr = None
-        fpr = None
-    if use_region_mtrc and use_track_mtrc:
-        tbdr = ntpt / nat
-    else:
-        tbdr = None
-    return rbdr, fpr, tbdr
+    return ntp, tar, nfp, n_fs, nat, ntpt
+
+
+class _CurPerThrCalcsAccum(BaseModel):
+    ntp: float = 0
+    tar: float = 0
+    nfp: float = 0
+    n_fs: float = 0
+    nat: float = 0
+    ntpt: float = 0
 
 
 class CurrentCriteriaAccumulator:
@@ -424,7 +424,7 @@ class CurrentCriteriaAccumulator:
         """
         self.__alpha = alpha
         self.__beta = beta
-        self.anomaly_score_thresholds = np.linspace(1.01, -0.01, NUM_POINTS)
+        self.__anomaly_score_thresholds = np.linspace(1.01, -0.01, NUM_POINTS)
         self.rbdrs, self.fprs, self.tbdrs = [], [], []
         self.__result = {
             "region_roc_auc": None,
@@ -432,6 +432,14 @@ class CurrentCriteriaAccumulator:
         }
         self.__use_region_mtrc = []
         self.__use_track_mtrc = []
+        self.__per_thr_calcs_accum = {
+            thr: _CurPerThrCalcsAccum()
+            for thr in self.anomaly_score_thresholds
+        }
+
+    @property
+    def anomaly_score_thresholds(self):
+        return self.__anomaly_score_thresholds
 
     @property
     def alpha(self) -> float:
@@ -460,15 +468,15 @@ class CurrentCriteriaAccumulator:
         use_track_mtrc = preds.is_anomaly_track_id_available and gts.is_anomaly_track_id_available
         self.__use_track_mtrc.append(use_track_mtrc)
         for thr in self.anomaly_score_thresholds:
-            rbdr, fpr, tbdr = _get_rbdr_fpr_tbdr(
-                preds=preds,
-                gts=gts,
-                threshold=thr,
-                alpha=self.alpha,
-                beta=self.beta)
-            self.rbdrs.append(rbdr)
-            self.fprs.append(fpr)
-            self.tbdrs.append(tbdr)
+            ntp, tar, nfp, n_fs, nat, ntpt = _get_cur_calcs(
+                preds, gts, thr, self.alpha, self.beta, use_region_mtrc, use_track_mtrc)
+            _accum = self.__per_thr_calcs_accum[thr]
+            _accum.ntp += ntp
+            _accum.tar += tar
+            _accum.nfp += nfp
+            _accum.n_fs += n_fs
+            _accum.nat += nat
+            _accum.ntpt += ntpt
 
     def summarize(self) -> dict:
         """
@@ -483,26 +491,34 @@ class CurrentCriteriaAccumulator:
         Dict[str, Any]
             Calculated performance metrics: "region_roc_auc" and "track_roc_auc".
         """
-        if not (self.fprs and all(self.__use_region_mtrc)):
+        if not (self.__use_region_mtrc and all(self.__use_region_mtrc)):
             return {
                 "region_roc_auc": None,
                 "track_roc_auc": None
             }
-        # sort x axis
-        fprs_sorted_indices = np.argsort(self.fprs)
-        self.rbdrs = [self.rbdrs[i] for i in fprs_sorted_indices]
-        self.fprs = [self.fprs[i] for i in fprs_sorted_indices]
-        self.tbdrs = [self.tbdrs[i] for i in fprs_sorted_indices]
+        # calculate
+        rbdrs, fprs, tbdrs = [], [], []
+        for thr in self.anomaly_score_thresholds:
+            _accum = self.__per_thr_calcs_accum[thr]
+            rbdr = _accum.ntp / _accum.tar
+            fpr = _accum.nfp / _accum.n_fs
+            if all(self.__use_track_mtrc):
+                tbdr = _accum.ntpt / _accum.nat
+            else:
+                tbdr = None
+            rbdrs.append(rbdr)
+            fprs.append(fpr)
+            tbdrs.append(tbdr)
         # recommendation calculating AUC for false positive rates per frame from 0 to 1.0
         rbdrs_, fprs_, tbdrs_ = [], [], []
-        for rbdr, fpr, tbdr in zip(self.rbdrs, self.fprs, self.tbdrs):
+        for rbdr, fpr, tbdr in zip(rbdrs, fprs, tbdrs):
             if not (0.0 <= fpr <= 1.0):
                 continue
             rbdrs_.append(rbdr)
             fprs_.append(fpr)
             tbdrs_.append(tbdr)
         self.__result["region_roc_auc"] = auc(fprs_, rbdrs_)
-        if self.__use_track_mtrc:
+        if all(self.__use_track_mtrc):
             self.__result["track_roc_auc"] = auc(fprs_, tbdrs_)
         else:
             self.__result["track_roc_auc"] = None
