@@ -17,7 +17,7 @@ install-requirements:
 	pip3 install -r requirements.txt
 
 test:
-	pytests -s
+	pytest -s
 
 build:
 	python3 setup.py bdist_wheel
