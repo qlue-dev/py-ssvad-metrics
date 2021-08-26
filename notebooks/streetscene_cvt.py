@@ -54,10 +54,10 @@ def main(args):
                 anomalous_regions = [
                     AnomalousRegion(
                         bounding_box=[
-                            math.floor(row["x"]-row["w"]/2),
-                            math.floor(row["y"]-row["h"]/2),
-                            math.ceil(row["x"]+row["w"]/2),
-                            math.ceil(row["y"]+row["h"]/2)
+                            max(0, math.floor(row["x"]-row["w"]/2)),
+                            max(0, math.floor(row["y"]-row["h"]/2)),
+                            min(_d['frame_width'], math.ceil(row["x"]+row["w"]/2)),
+                            min(_d['frame_height'], math.ceil(row["y"]+row["h"]/2))
                         ],
                         score=1.0
                     )
