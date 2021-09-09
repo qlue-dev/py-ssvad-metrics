@@ -43,9 +43,9 @@ we provided scripts for converting ground-truth annotation files from Street Sce
 
 1. B. Ramachandra, M. Jones and R. R. Vatsavai, "A Survey of Single-Scene Video Anomaly Detection," in IEEE Transactions on Pattern Analysis and Machine Intelligence, doi: 10.1109/TPAMI.2020.3040591.
 
-## Copyright
+## License
 
-Copyright PT Qlue Performa Indonesia 2021 All Rights Reserved
+GPL-3.0 License. Brought to open-source by PT Qlue Performa Indonesia.
 
 ## Contributing
 
