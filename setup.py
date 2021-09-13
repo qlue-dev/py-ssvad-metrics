@@ -38,5 +38,6 @@ setup(
         'scikit-learn>=0.24.1',
         'scipy>=1.5.4',
         'pydantic>=1.8.1',
-        'pandas>=1.1.5']
+        'pandas>=1.1.5',
+        'tqdm>=4.58.0']
 )
