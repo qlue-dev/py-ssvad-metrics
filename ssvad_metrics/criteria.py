@@ -6,7 +6,7 @@ from scipy.interpolate import interp1d
 from scipy.optimize import brentq
 from sklearn.metrics import auc, jaccard_score
 
-from ssvad_metrics.data_schema import VADAnnotation
+from ssvad_metrics.data_schema import AnomalousRegion, VADAnnotation
 from ssvad_metrics.utils import anomalous_regions_to_float_mask, iou_single
 
 NUM_POINTS = 103
@@ -334,9 +334,17 @@ def _get_cur_calcs(
     ntp, tar = 0, 0
     nfp, n_fs = 0, 0
     gt_a_trks, pred_a_trks = {}, {}
+    # implicitly give anomaly score of 0 to the rest of the frame (i.e., not inside a bounding box)
+    for pred_f in pred_frms:
+        pred_f.anomalous_regions.append(
+            AnomalousRegion(
+                bounding_box=[0, 0, 1, 1],
+                score=0.))
+    # calculate frame-by-frame
     for pred_f, gt_f in zip(pred_frms, gt_frms):
         n_fs += 1
         if use_track_mtrc:
+            # check for track_id for track metric calculation
             track_id = gt_f.anomaly_track_id
             if track_id >= 0:
                 gt_a_trk = gt_a_trks.setdefault(track_id, list())
@@ -344,6 +352,7 @@ def _get_cur_calcs(
                 pred_a_trk = pred_a_trks.setdefault(track_id, list())
                 pred_a_trk.append(pred_f)
         if use_region_mtrc:
+            # calculate region metric
             tar += len(gt_f.anomalous_regions)
             for gt_ar in gt_f.anomalous_regions:
                 for pred_ar in pred_f.anomalous_regions:
