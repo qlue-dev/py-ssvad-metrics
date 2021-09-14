@@ -1,116 +1,35 @@
-from typing import Dict, List, Optional
+import os
+from typing import List, Optional, Tuple
 
-import pandas as pd
-from numpy.core.arrayprint import FloatingFormat
-from pydantic import (BaseModel, PositiveFloat, PositiveInt, ValidationError,
-                      confloat, conlist, validator)
-from pydantic.fields import Field
-from pydantic.types import conint
+import cv2
+import numpy as np
+from pydantic import (BaseModel, Field, PositiveFloat, PrivateAttr,
+                      ValidationError, confloat, conint, validator)
 
-# def load_motchallenge(fname, **kwargs):
-#     """Load MOT challenge data.
-#     Borrowed from [py-motmetrics](https://github.com/cheind/py-motmetrics/blob/447c622762476295bdb76965aaa655072e6f9690/motmetrics/io.py#L48)
-
-#     Params
-#     ------
-#     fname : str
-#         Filename to load data from.
-
-#     Kwargs
-#     ------
-#     sep : str
-#         Allowed field separators, defaults to '\s+|\t+|,'
-#     min_confidence : float
-#         Rows with confidence less than this threshold are removed.
-#         Defaults to -1. You should set this to 1 when loading
-#         ground truth MOTChallenge data, so that invalid rectangles in
-#         the ground truth are not considered during matching.
-#     Returns
-#     ------
-#     df : pandas.DataFrame
-#         The returned dataframe has the following columns
-#             'X', 'Y', 'Width', 'Height', 'Confidence', 'ClassId', 'Visibility'
-#         The dataframe is indexed by ('FrameId', 'Id')
-#     """
-
-#     sep = kwargs.pop('sep', r'\s+|\t+|,')
-#     min_confidence = kwargs.pop('min_confidence', -1)
-#     # df = pd.read_csv(
-#     #     fname,
-#     #     sep=sep,
-#     #     index_col=[0, 1],
-#     #     skipinitialspace=True,
-#     #     header=None,
-#     #     names=['FrameId', 'Id', 'X', 'Y', 'Width', 'Height',
-#     #            'Confidence', 'ClassId', 'Visibility', 'unused'],
-#     #     engine='python'
-#     # )
-#     df = pd.read_csv(
-#         fname,
-#         sep=sep,
-#         skipinitialspace=True,
-#         header=None,
-#         names=['FrameId', 'Id', 'X', 'Y', 'Width', 'Height',
-#                'Confidence', 'ClassId', 'Visibility', 'unused'],
-#         engine='python'
-#     )
-
-#     # Account for matlab convention.
-#     # df[['X', 'Y']] -= (1, 1)
-
-#     # Removed trailing column
-#     del df['unused']
-
-#     # Remove all rows without sufficient confidence
-#     df = df[df['Confidence'] >= min_confidence]
-#     return df
-
-# we borrow MOT format
-# https://motchallenge.net/instructions/
-# https://github.com/openvinotoolkit/cvat/blob/develop/cvat/apps/dataset_manager/formats/README.md#mot-dumper
-
-# def load_vatracks(fname: str) -> Dict[int, list]:
-#     """
-#     Load video anomaly tracks data.
-
-#     PARAMETERS
-#     ----------
-#     fname: str
-#         File name to the video anomaly tracks data.
-#         The file must not have header, containing:
-#         AnomalyTrackId,FrameId
-
-#     RETURNS
-#     -------
-#     Dict[int, list]
-#         A dictionary containing AnomalyTrackId as the key,
-#         and list of FrameId as the value.
-#     """
-#     df = pd.read_csv(
-#         fname,
-#         skipinitialspace=True,
-#         header=None,
-#         names=['AnomalyTrackId', 'FrameId'],
-#         engine='python'
-#     )
-#     va_tracks = {}
-#     for _, row in df.iterrows():
-#         va_tracks.setdefault(
-#             int(row["AnomalyTrackId"]), list()
-#         ).append(row["FrameId"])
-#     return va_tracks
+ANOMALOUS_REGION_EXTS = [".tiff", ".npy"]
 
 
-class AnomalousRegion(BaseModel):
-    bounding_box: conlist(int, min_items=4, max_items=4) = Field(
-        ..., description=(
-            "[x left, y top, x right, y bottom]. "
-            "Must be an absolute type value."))
-    score: confloat(ge=0., le=1.0) = Field(
-        ..., description=(
-            "Score for the region. "
-            "For GT, value must be 1.")
-    )
+def load_anomalous_region(p: str) -> np.ndarray:
+    """
+    Load and validate anomalous region (pixel score map) array.
+    """
+    ext = os.path.splitext(p)[1]
+    if ext == ".tiff":
+        arr = cv2.imread(p, cv2.IMREAD_UNCHANGED)
+    elif ext == ".npy":
+        arr = np.load(p)
+    else:
+        # unsupported ext
+        raise ValueError(
+            "Unsupported file extension '%s' for anomalous region file!" % ext)
+    assert arr.dtype == np.float32, (
+        "Pixel score map array must have np.float32 (single precision floating point) "
+        "data type! (provided: %s)") % arr.dtype
+    assert arr.min() >= 0.0 and arr.max() <= 1.0, (
+        "Scores must be in the range of 0.0 to 1.0! "
+        "(current scores range: [%.2f, %.2f])"
+    ) % (arr.min(), arr.max())
+    return arr
 
 
 class VADFrame(BaseModel):
@@ -123,13 +42,28 @@ class VADFrame(BaseModel):
             "Set to -1 for Negative."))
     frame_level_score: Optional[confloat(ge=0., le=1.0)] = Field(
         ..., description=(
-            "Set to None if anomalous region available. "
-            "If None, anomalous_regions must not None. "
+            "Set to None if anomalous region is available. "
+            "If frame_level_score is None, anomalous_regions must not None. "
             "For GT, 1 for Positive and 0 for Negative."))
-    anomalous_regions: List[AnomalousRegion] = Field(
+    anomalous_region: Optional[str] = Field(
         ..., description=(
-            "Set to None if anomalous region not available. "
-            "If empty, the frame is considered as Negative."))
+            "Path to the anomalous region (pixel score map) file. "
+            "Scores must be in the range of 0.0 to 1.0 "
+            "with data type np.float32 (single precision floating point). "
+            "Supported file formats: %s. "
+            "Set to None if anomalous region not available.") % ANOMALOUS_REGION_EXTS)
+
+    @validator('anomalous_region')
+    def anomalous_region_file_exist(cls, v, *args, **kwargs):
+        v = os.path.expandvars(os.path.expanduser(v))
+        ext = os.path.splitext(v)[1]
+        if not os.path.exists(v):
+            raise ValidationError(
+                "Anomalous region file '%s' is not exist!" % v)
+        if ext not in ANOMALOUS_REGION_EXTS:
+            raise ValueError(
+                "Unsupported file extension '%s' for anomalous region file!" % ext)
+        return v
 
 
 class VADAnnotation(BaseModel):

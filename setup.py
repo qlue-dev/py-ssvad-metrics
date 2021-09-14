@@ -39,5 +39,6 @@ setup(
         'scipy>=1.5.4',
         'pydantic>=1.8.1',
         'pandas>=1.1.5',
-        'tqdm>=4.58.0']
+        'tqdm>=4.58.0',
+        'numba>=0.53.1']
 )
