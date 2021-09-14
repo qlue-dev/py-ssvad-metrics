@@ -338,7 +338,7 @@ def _get_cur_calcs(
     for pred_f in pred_frms:
         pred_f.anomalous_regions.append(
             AnomalousRegion(
-                bounding_box=[0, 0, 1, 1],
+                bounding_box=[0, 0, preds.frame_width, preds.frame_height],
                 score=0.))
     # calculate frame-by-frame
     for pred_f, gt_f in zip(pred_frms, gt_frms):
