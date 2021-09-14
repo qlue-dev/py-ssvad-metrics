@@ -9,8 +9,8 @@ from sklearn.metrics import auc, jaccard_score
 from ssvad_metrics.data_schema import AnomalousRegion, VADAnnotation
 from ssvad_metrics.utils import anomalous_regions_to_float_mask, iou_single
 
-NUM_POINTS = 103
-ANOMALY_SCORE_THRESHOLDS = np.linspace(1.01, -0.01, NUM_POINTS)
+NUM_POINTS = 101
+ANOMALY_SCORE_THRESHOLDS = np.linspace(1., 0., NUM_POINTS)
 
 # def _get_traditional_tpr_fpr_masks(
 #         pred_masks: Union[np.ndarray, List[np.ndarray]],
