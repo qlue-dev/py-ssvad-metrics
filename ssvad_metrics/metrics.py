@@ -2,6 +2,8 @@ import json
 import logging
 from pathlib import Path
 
+from tqdm import tqdm
+
 from ssvad_metrics import data_schema
 from ssvad_metrics.criteria import (CurrentCriteriaAccumulator,
                                     TraditionalCriteriaAccumulator)
@@ -66,7 +68,8 @@ def accumulated_evaluate(
         gt_name_suffix: str = "",
         pred_name_suffix: str = "",
         alpha: float = 0.1,
-        beta: float = 0.1) -> dict:
+        beta: float = 0.1,
+        show_progress: bool = True) -> dict:
     """
     Evaluate the single-scene video anomaly detection
     using the traditional criteria, and using the "current" criteria.
@@ -105,6 +108,8 @@ def accumulated_evaluate(
         A threshold used in NTPT calculation. See reference for more information.
     beta: float = 0.1
         A threshold used in NTP, NFP, and NTPT calculations. See reference for more information.
+    show_progress: bool = True
+        Show progress bar.
 
     RETURN
     ------
@@ -128,7 +133,11 @@ def accumulated_evaluate(
         print("'%s' is omitted from prediction files" % k)
     logging.info(
         "Obtained %d groundtruth and prediction file pairs", len(gt_files))
-    for k in gt_files:
+    if show_progress:
+        ks = tqdm(gt_files, desc="Processing")
+    else:
+        ks = gt_files
+    for k in ks:
         logging.info("Processing '%s'", k)
         with open(gt_files[k], "r") as fp:
             gt_annos = data_schema.data_parser(json.load(fp))
