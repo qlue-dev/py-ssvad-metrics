@@ -1,3 +1,6 @@
+"""
+Data structures used by the metrics
+"""
 import os
 from typing import List, Optional, Tuple
 
@@ -6,7 +9,7 @@ import numpy as np
 from pydantic import (BaseModel, Field, PositiveFloat, PrivateAttr,
                       ValidationError, confloat, conint, validator)
 
-ANOMALOUS_REGION_EXTS = [".tiff", ".npy"]
+PX_MAP_EXTS = [".tiff", ".npy"]
 
 
 def load_anomalous_region(p: str) -> np.ndarray:
@@ -43,24 +46,24 @@ class VADFrame(BaseModel):
     frame_level_score: Optional[confloat(ge=0., le=1.0)] = Field(
         ..., description=(
             "Set to None if anomalous region is available. "
-            "If frame_level_score is None, anomalous_regions must not None. "
+            "If frame_level_score is None, pixel_level_scores_map must not None. "
             "For GT, 1 for Positive and 0 for Negative."))
-    anomalous_region: Optional[str] = Field(
+    pixel_level_scores_map: Optional[str] = Field(
         ..., description=(
-            "Path to the anomalous region (pixel score map) file. "
+            "Path to the pixel anomaly scores map file. "
             "Scores must be in the range of 0.0 to 1.0 "
             "with data type np.float32 (single precision floating point). "
             "Supported file formats: %s. "
-            "Set to None if anomalous region not available.") % ANOMALOUS_REGION_EXTS)
+            "Set to None if not available.") % PX_MAP_EXTS)
 
-    @validator('anomalous_region')
-    def anomalous_region_file_exist(cls, v, *args, **kwargs):
+    @validator('pixel_level_scores_map')
+    def pixel_level_scores_map_file_exist(cls, v, *args, **kwargs):
         v = os.path.expandvars(os.path.expanduser(v))
         ext = os.path.splitext(v)[1]
         if not os.path.exists(v):
             raise ValidationError(
                 "Anomalous region file '%s' is not exist!" % v)
-        if ext not in ANOMALOUS_REGION_EXTS:
+        if ext not in PX_MAP_EXTS:
             raise ValueError(
                 "Unsupported file extension '%s' for anomalous region file!" % ext)
         return v
