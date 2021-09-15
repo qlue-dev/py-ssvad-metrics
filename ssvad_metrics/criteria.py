@@ -403,7 +403,7 @@ class CurrentCriteriaAccumulator:
         """
         use_region_mtrc = preds.is_anomalous_regions_available and gts.is_anomalous_regions_available
         self.__use_region_mtrc.append(use_region_mtrc)
-        use_track_mtrc = preds.is_anomaly_track_id_available and gts.is_anomaly_track_id_available
+        use_track_mtrc = gts.is_anomaly_track_id_available
         self.__use_track_mtrc.append(use_track_mtrc)
         for thr in self.anomaly_score_thresholds:
             ntp, tar, nfp, n_fs, nat, ntpt = _get_cur_calcs(
