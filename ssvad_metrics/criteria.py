@@ -278,14 +278,14 @@ def _get_cur_calcs(
         if use_region_mtrc:
             # load mask and get connected components
             # NOTE: number of connected components always include backgroud
-            # (even all pixels are True). label 0 is the background.
+            # (even all pixels are True). label 0 is the background (BG).
             gt_num_ccs, gt_cc_labels, pred_num_ccs, pred_cc_labels = _get_connected_components(
                 threshold, gt_f, pred_f)
             # calculate region metric
             tar += gt_num_ccs - 1  # minus BG
-            for k in range(1, gt_num_ccs):
+            for k in range(1, gt_num_ccs):  # skip BG
                 gt_ar_m = gt_cc_labels == k
-                for j in range(1, pred_num_ccs):
+                for j in range(1, pred_num_ccs):  # skip BG
                     pred_ar_m = pred_cc_labels == j
                     iou = mask_iou(gt_ar_m, pred_ar_m)
                     if iou >= beta:
@@ -311,10 +311,10 @@ def _get_cur_calcs(
             for gt_f, pred_f in zip(gt_a_trk, pred_a_trk):
                 gt_num_ccs, gt_cc_labels, pred_num_ccs, pred_cc_labels = _get_connected_components(
                     threshold, gt_f, pred_f)
-                for k in range(1, gt_num_ccs):
+                for k in range(1, gt_num_ccs):  # skip BG
                     gt_ar_m = gt_cc_labels == k
                     lk_size += 1
-                    for j in range(1, pred_num_ccs):
+                    for j in range(1, pred_num_ccs):  # skip BG
                         pred_ar_m = pred_cc_labels == j
                         iou = mask_iou(gt_ar_m, pred_ar_m)
                         if iou >= beta:
