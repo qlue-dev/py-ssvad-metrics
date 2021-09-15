@@ -7,12 +7,11 @@ This project contains evaluation protocol (metrics) for benchmarking single-scen
 This is an unofficial implementation of Sec. 2.2 of [A Survey of Single-Scene Video Anomaly Detection](https://arxiv.org/pdf/2004.05993.pdf).
 This metric is intended **only** for single-scene video anomaly detection methods and is untested for other purposes.
 
-There are 2 kind of supported outputs from SSVAD methods:
+There are 3 kind of supported outputs from SSVAD methods/ground-truths:
 
-- Pixel-level anomaly scores maps
-- Frame-level anomaly scores
-
-Bounding-boxes based outputs is also supported, but it must be converted into pixel-level anomaly scores maps first.
+- Pixel-level anomaly scores maps.
+- Bounding-boxes based outputs, it will be implicitly converted into pixel-level anomaly scores maps.
+- Frame-level anomaly scores.
 
 The metrics can be categorized into 4:
 
@@ -22,8 +21,8 @@ The metrics can be categorized into 4:
 1. Frame-level traditional metric: only require frame-level anomaly scores; does not require pixel-level anomaly scores maps predictions and ground-truths.
 
 Each prediction output and ground-truth annotation must be a JSON file that follows data structure defined in [`ssvad_metrics.data_schema.VADAnnotation`](ssvad_metrics/data_schema.py).
-For pixel-level predictions, scores map arrays must be provided using `.tiff` or `.npy` format,
-containing single-precision floating point values ranging from 0.0 to 1.0.
+Pixel-level anomaly scores maps arrays must be provided using `.tiff` or `.npy` format,
+containing single-precision (32-bit) floating point values ranging from 0.0 to 1.0. For ground-truths, it can be same as pixel-level predictions, or using boolean values instead. But only `.npy` files supported if using boolean values (as `.tiff` requires 32-bit floating point values).
 
 ## Installation
 

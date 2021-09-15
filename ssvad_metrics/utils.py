@@ -1,7 +1,9 @@
-from typing import Iterable, Tuple
+from typing import Iterable, List, Tuple
 
 import cv2
 import numpy as np
+
+from ssvad_metrics.data_schema import AnomalousRegion
 
 
 def bounding_boxes_to_float_mask(
@@ -16,7 +18,7 @@ def bounding_boxes_to_float_mask(
 
 
 def anomalous_regions_to_float_mask(
-        anomalous_regions: list, frame_shape: Tuple[int]) -> np.ndarray:
+        anomalous_regions: List[AnomalousRegion], frame_shape: Tuple[int]) -> np.ndarray:
     """
     Convert list of `AnomalousRegion` instances into a semantic mask with floating value.
     """

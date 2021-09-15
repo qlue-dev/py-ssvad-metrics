@@ -6,7 +6,7 @@ from typing import List, Optional
 
 import cv2
 import numpy as np
-from pydantic import (BaseModel, Field, PositiveFloat, ValidationError,
+from pydantic import (BaseModel, Field, PositiveFloat,
                       confloat, conint, conlist, validator)
 
 PX_MAP_EXTS = [".tiff", ".npy"]
@@ -61,27 +61,32 @@ class VADFrame(BaseModel):
             "Set to -1 for Negative."))
     frame_level_score: Optional[confloat(ge=0., le=1.0)] = Field(
         None, description=(
-            "Set to None if anomalous region is available. "
-            "If frame_level_score is None, pixel_level_scores_map must not None. "
-            "For GT, 1 for Positive and 0 for Negative."))
+            "Frame-level anomaly score. "
+            "Ignored if `~VADAnnotation.is_anomalous_regions_available` is True. "
+            "Set to None if not available."))
+    anomalous_regions: Optional[List[AnomalousRegion]] = Field(
+        None, description=(
+            "Bounding boxes representing anomalous regions. "
+            "If a frame does not contain any bboxes, provide empty list. "
+            "Ignored if pixel_level_scores_map is available. "
+            "Set to None if not available."))
     pixel_level_scores_map: Optional[str] = Field(
         None, description=(
             "Path to the pixel anomaly scores map file. "
             "Scores must be in the range of 0.0 to 1.0 "
-            "with data type np.float32 (single precision floating point). "
+            "with data type np.float32 (single-precision floating point). "
             "Supported file formats: %s. "
+            "For ground-truth, it can be np.bool instead (boolean), but only npy files supported. "
             "Set to None if not available.") % PX_MAP_EXTS)
-    anomalous_regions: Optional[List[AnomalousRegion]] = Field(
-        None, description=(
-            "LEGACY attribute containing bounding boxes. "
-            "Unused for metrics calculation, but is kept for good reason."))
 
     @validator('pixel_level_scores_map')
-    def pixel_level_scores_map_file_exist(cls, v, *args, **kwargs):
+    def pixel_level_scores_map_file_exist(cls, v, **kwargs):
+        if v is None:
+            return v
         v = os.path.expandvars(os.path.expanduser(v))
         ext = os.path.splitext(v)[1]
         if not os.path.exists(v):
-            raise ValidationError(
+            raise FileNotFoundError(
                 "Anomalous region file '%s' is not exist!" % v)
         if ext not in PX_MAP_EXTS:
             raise ValueError(
@@ -91,20 +96,29 @@ class VADFrame(BaseModel):
 
 class VADAnnotation(BaseModel):
     frames_count: conint(gt=0)
-    is_anomalous_regions_available: bool
-    is_anomaly_track_id_available: bool
+    is_anomalous_regions_available: bool = Field(
+        ..., description="Set to true if each frame contain pixel_level_scores_map or anomalous_regions.")
+    is_anomaly_track_id_available: bool = Field(
+        ..., description="Set to true if track_id is available.")
     video_length_sec: Optional[PositiveFloat] = None
     frame_width: conint(gt=0)
     frame_height: conint(gt=0)
     frame_rate: Optional[PositiveFloat] = None
     frames: List[VADFrame] = Field(
-        ..., description=("len(frames) == frames_count"))
+        ..., description="Length of 'frames' must match 'frames_count'")
 
     @validator('frames')
     def frames_len(cls, v, values, **kwargs):
         if len(v) != values["frames_count"]:
-            raise ValidationError(
+            raise ValueError(
                 "Length of 'frames' does not match 'frames_count'")
+        return v
+
+    @validator('frames', each_item=True)
+    def anno_available(cls, v, **kwargs):
+        if v.pixel_level_scores_map is None and v.anomalous_region is None and v.frame_level_score is None:
+            raise ValueError(
+                "Neither frame_level_score nor anomalous_regions nor pixel_level_scores_map is provided!")
         return v
 
     class Config:
