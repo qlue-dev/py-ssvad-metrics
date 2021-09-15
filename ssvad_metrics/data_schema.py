@@ -2,12 +2,12 @@
 Data structures used by the metrics
 """
 import os
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import cv2
 import numpy as np
-from pydantic import (BaseModel, Field, PositiveFloat, PrivateAttr,
-                      ValidationError, confloat, conint, validator)
+from pydantic import (BaseModel, Field, PositiveFloat, ValidationError,
+                      confloat, conint, conlist, validator)
 
 PX_MAP_EXTS = [".tiff", ".npy"]
 
@@ -35,26 +35,46 @@ def load_pixel_score_map(p: str) -> np.ndarray:
     return arr
 
 
+class AnomalousRegion(BaseModel):
+    """
+    LEGACY data structure that represents anomalous region as bounding box.
+    Unused for metrics calculation, but is kept for good reason.
+    """
+    bounding_box: conlist(int, min_items=4, max_items=4) = Field(
+        ..., description=(
+            "[x left, y top, x right, y bottom]. "
+            "Must be an absolute type value."))
+    score: confloat(ge=0., le=1.0) = Field(
+        ..., description=(
+            "Score for the region. "
+            "For GT, value must be 1.")
+    )
+
+
 class VADFrame(BaseModel):
     frame_id: conint(gt=0)
     frame_filename: Optional[str] = None
     video_time_sec: Optional[PositiveFloat] = None
     anomaly_track_id: Optional[int] = Field(
-        ..., description=(
+        None, description=(
             "Set to None if anomalous track not available. "
             "Set to -1 for Negative."))
     frame_level_score: Optional[confloat(ge=0., le=1.0)] = Field(
-        ..., description=(
+        None, description=(
             "Set to None if anomalous region is available. "
             "If frame_level_score is None, pixel_level_scores_map must not None. "
             "For GT, 1 for Positive and 0 for Negative."))
     pixel_level_scores_map: Optional[str] = Field(
-        ..., description=(
+        None, description=(
             "Path to the pixel anomaly scores map file. "
             "Scores must be in the range of 0.0 to 1.0 "
             "with data type np.float32 (single precision floating point). "
             "Supported file formats: %s. "
             "Set to None if not available.") % PX_MAP_EXTS)
+    anomalous_regions: Optional[List[AnomalousRegion]] = Field(
+        None, description=(
+            "LEGACY attribute containing bounding boxes. "
+            "Unused for metrics calculation, but is kept for good reason."))
 
     @validator('pixel_level_scores_map')
     def pixel_level_scores_map_file_exist(cls, v, *args, **kwargs):
