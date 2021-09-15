@@ -6,7 +6,7 @@ from scipy.optimize import brentq
 from sklearn.metrics import auc
 
 from ssvad_metrics._utils import mask_iou, trad_pix_calc
-from ssvad_metrics.data_schema import VADAnnotation, load_anomalous_region
+from ssvad_metrics.data_schema import VADAnnotation, load_pixel_score_map
 
 NUM_POINTS = 103
 ANOMALY_SCORE_THRESHOLDS = np.linspace(1.01, -0.01, NUM_POINTS)
@@ -24,14 +24,14 @@ def _get_trad_calcs(
             "with the ground-truth %s!" % (pred_frm_shp, gt_frm_shp))
         for pred_frm, gt_frm in zip(preds.frames, gts.frames):
             # GT
-            gt_m = load_anomalous_region(gt_frm.pixel_level_scores_map)
+            gt_m = load_pixel_score_map(gt_frm.pixel_level_scores_map)
             assert gt_m.shape == gt_frm_shp, (
                 "The loaded ground-truth anomalous region frame shape %s "
                 "mismatched with the frame shape defined in the annotation %s!") % (gt_m.shape, gt_frm_shp)
             gt_m_bool = gt_m.astype(np.bool)
             is_gt_m_pos = np.any(gt_m_bool)
             # Frame-level calc
-            pred_m = load_anomalous_region(pred_frm.pixel_level_scores_map)
+            pred_m = load_pixel_score_map(pred_frm.pixel_level_scores_map)
             assert pred_m.shape == pred_frm_shp, (
                 "The loaded predictions anomalous region frame shape %s "
                 "mismatched with the frame shape defined in the annotation %s!") % (pred_m.shape, pred_frm_shp)
@@ -240,11 +240,11 @@ class TraditionalCriteriaAccumulator:
 
 
 def _get_connected_components(threshold, gt_f, pred_f):
-    gt_m = load_anomalous_region(gt_f.pixel_level_scores_map)
+    gt_m = load_pixel_score_map(gt_f.pixel_level_scores_map)
     gt_m = gt_m.astype(np.bool) * np.uint8(255)
     gt_num_ccs, gt_cc_labels = cv2.connectedComponents(
         gt_m, connectivity=8, ltype=cv2.CV_32S)
-    pred_m = load_anomalous_region(pred_f.pixel_level_scores_map)
+    pred_m = load_pixel_score_map(pred_f.pixel_level_scores_map)
     pred_m = (pred_m >= threshold) * np.uint8(255)
     pred_num_ccs, pred_cc_labels = cv2.connectedComponents(
         pred_m, connectivity=8, ltype=cv2.CV_32S)

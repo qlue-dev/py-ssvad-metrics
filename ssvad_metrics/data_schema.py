@@ -12,9 +12,9 @@ from pydantic import (BaseModel, Field, PositiveFloat, PrivateAttr,
 PX_MAP_EXTS = [".tiff", ".npy"]
 
 
-def load_anomalous_region(p: str) -> np.ndarray:
+def load_pixel_score_map(p: str) -> np.ndarray:
     """
-    Load and validate anomalous region (pixel score map) array.
+    Load and validate pixel score map array.
     """
     ext = os.path.splitext(p)[1]
     if ext == ".tiff":
