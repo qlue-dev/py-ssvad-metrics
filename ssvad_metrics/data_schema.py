@@ -32,6 +32,8 @@ def load_pixel_score_map(p: str) -> np.ndarray:
         "Scores must be in the range of 0.0 to 1.0! "
         "(current scores range: [%.2f, %.2f])"
     ) % (arr.min(), arr.max())
+    assert len(arr.shape) == 2, "Pixel score map must be 2D array, however %dD array given!" % len(
+        arr.shape)
     return arr
 
 
