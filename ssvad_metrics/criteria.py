@@ -28,6 +28,9 @@ def _get_trad_calcs(
             # GT
             if gt_frm.pixel_level_scores_map is not None:
                 gt_m = load_pixel_score_map(gt_frm.pixel_level_scores_map)
+                assert gt_m.shape == gt_frm_shp, (
+                    "The loaded ground-truth anomalous region frame shape %s "
+                    "mismatched with the frame shape defined in the annotation %s!") % (gt_m.shape, gt_frm_shp)
             elif gt_frm.anomalous_regions is not None:
                 gt_m = anomalous_regions_to_float_mask(
                     gt_frm.anomalous_regions, (gts.frame_height, gts.frame_width))
@@ -36,14 +39,14 @@ def _get_trad_calcs(
                     "'is_anomalous_regions_available' is True "
                     "but no 'pixel_level_scores_map' nor 'anomalous_regions' "
                     "in frame_id=%d of GT file!") % gt_frm.frame_id)
-            assert gt_m.shape == gt_frm_shp, (
-                "The loaded ground-truth anomalous region frame shape %s "
-                "mismatched with the frame shape defined in the annotation %s!") % (gt_m.shape, gt_frm_shp)
             gt_m_bool = gt_m.astype(np.bool)
             is_gt_m_pos = np.any(gt_m_bool)
             # Frame-level calc
             if pred_frm.pixel_level_scores_map is not None:
                 pred_m = load_pixel_score_map(pred_frm.pixel_level_scores_map)
+                assert pred_m.shape == pred_frm_shp, (
+                    "The loaded predictions anomalous region frame shape %s "
+                    "mismatched with the frame shape defined in the annotation %s!") % (pred_m.shape, pred_frm_shp)
             elif pred_frm.anomalous_regions is not None:
                 pred_m = anomalous_regions_to_float_mask(
                     pred_frm.anomalous_regions, (preds.frame_height, preds.frame_width))
@@ -52,9 +55,6 @@ def _get_trad_calcs(
                     "'is_anomalous_regions_available' is True "
                     "but no 'pixel_level_scores_map' nor 'anomalous_regions' "
                     "in frame_id=%d of pred file!") % pred_frm.frame_id)
-            assert pred_m.shape == pred_frm_shp, (
-                "The loaded predictions anomalous region frame shape %s "
-                "mismatched with the frame shape defined in the annotation %s!") % (pred_m.shape, pred_frm_shp)
             pred_m_pos = pred_m >= threshold
             f_is_pred_pos = np.any(pred_m_pos)
             # Counting f_tp, f_fp, f_ps, f_ns
