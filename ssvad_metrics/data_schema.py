@@ -37,8 +37,7 @@ def load_pixel_score_map(p: str) -> np.ndarray:
 
 class AnomalousRegion(BaseModel):
     """
-    LEGACY data structure that represents anomalous region as bounding box.
-    Unused for metrics calculation, but is kept for good reason.
+    Data structure that represents anomalous region as bounding box.
     """
     bounding_box: conlist(int, min_items=4, max_items=4) = Field(
         ..., description=(
@@ -116,7 +115,7 @@ class VADAnnotation(BaseModel):
 
     @validator('frames', each_item=True)
     def anno_available(cls, v, **kwargs):
-        if v.pixel_level_scores_map is None and v.anomalous_region is None and v.frame_level_score is None:
+        if v.pixel_level_scores_map is None and v.anomalous_regions is None and v.frame_level_score is None:
             raise ValueError(
                 "Neither frame_level_score nor anomalous_regions nor pixel_level_scores_map is provided!")
         return v

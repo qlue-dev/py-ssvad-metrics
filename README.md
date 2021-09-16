@@ -10,7 +10,7 @@ This metric is intended **only** for single-scene video anomaly detection method
 There are 3 kind of supported outputs from SSVAD methods/ground-truths:
 
 - Pixel-level anomaly scores maps.
-- Bounding-boxes based outputs, it will be implicitly converted into pixel-level anomaly scores maps.
+- Bounding-boxes based outputs, it will be implicitly converted into pixel-level anomaly scores maps. Overlapping bounding-boxes will be averaged by its scores.
 - Frame-level anomaly scores.
 
 The metrics can be categorized into 4:

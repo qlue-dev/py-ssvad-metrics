@@ -30,7 +30,7 @@ def _get_trad_calcs(
                 gt_m = load_pixel_score_map(gt_frm.pixel_level_scores_map)
             elif gt_frm.anomalous_regions is not None:
                 gt_m = anomalous_regions_to_float_mask(
-                    gt_frm.anomalous_regions)
+                    gt_frm.anomalous_regions, (gts.frame_height, gts.frame_width))
             else:
                 raise ValueError((
                     "'is_anomalous_regions_available' is True "
@@ -46,7 +46,7 @@ def _get_trad_calcs(
                 pred_m = load_pixel_score_map(pred_frm.pixel_level_scores_map)
             elif pred_frm.anomalous_regions is not None:
                 pred_m = anomalous_regions_to_float_mask(
-                    pred_frm.anomalous_regions)
+                    pred_frm.anomalous_regions, (preds.frame_height, preds.frame_width))
             else:
                 raise ValueError((
                     "'is_anomalous_regions_available' is True "
@@ -262,12 +262,14 @@ class TraditionalCriteriaAccumulator:
 def _get_connected_components(
         threshold: float,
         gt_frm: VADFrame,
-        pred_frm: VADFrame) -> Tuple[int, np.ndarray, int, np.ndarray]:
+        gt_frm_shape: Tuple[int, int],
+        pred_frm: VADFrame,
+        pred_frm_shape: Tuple[int, int]) -> Tuple[int, np.ndarray, int, np.ndarray]:
     if gt_frm.pixel_level_scores_map is not None:
         gt_m = load_pixel_score_map(gt_frm.pixel_level_scores_map)
     elif gt_frm.anomalous_regions is not None:
         gt_m = anomalous_regions_to_float_mask(
-            gt_frm.anomalous_regions)
+            gt_frm.anomalous_regions, gt_frm_shape)
     else:
         raise ValueError((
             "'is_anomalous_regions_available' is True "
@@ -281,7 +283,7 @@ def _get_connected_components(
         pred_m = load_pixel_score_map(pred_frm.pixel_level_scores_map)
     elif pred_frm.anomalous_regions is not None:
         pred_m = anomalous_regions_to_float_mask(
-            pred_frm.anomalous_regions)
+            pred_frm.anomalous_regions, pred_frm_shape)
     else:
         raise ValueError((
             "'is_anomalous_regions_available' is True "
@@ -323,7 +325,9 @@ def _get_cur_calcs(
             # NOTE: number of connected components always include backgroud
             # (even all pixels are True). label 0 is the background (BG).
             gt_num_ccs, gt_cc_labels, pred_num_ccs, pred_cc_labels = _get_connected_components(
-                threshold, gt_f, pred_f)
+                threshold,
+                gt_f, (gts.frame_height, gts.frame_width),
+                pred_f, (preds.frame_height, preds.frame_width))
             # calculate region metric
             tar += gt_num_ccs - 1  # minus BG
             for k in range(1, gt_num_ccs):  # skip BG
@@ -353,7 +357,9 @@ def _get_cur_calcs(
             lk_size = 0
             for gt_f, pred_f in zip(gt_a_trk, pred_a_trk):
                 gt_num_ccs, gt_cc_labels, pred_num_ccs, pred_cc_labels = _get_connected_components(
-                    threshold, gt_f, pred_f)
+                    threshold,
+                    gt_f, (gts.frame_height, gts.frame_width),
+                    pred_f, (preds.frame_height, preds.frame_width))
                 for k in range(1, gt_num_ccs):  # skip BG
                     gt_ar_m = gt_cc_labels == k
                     lk_size += 1
