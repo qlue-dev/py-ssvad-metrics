@@ -94,6 +94,8 @@ class VADFrame(BaseModel):
 
 
 class VADAnnotation(BaseModel):
+    is_gt: Optional[bool] = Field(
+        None, description="Assuring the chosen file is groundtruth file or prediction file.")
     frames_count: conint(gt=0)
     is_anomalous_regions_available: bool = Field(
         ..., description="Set to true if each frame contain pixel_level_scores_map or anomalous_regions.")

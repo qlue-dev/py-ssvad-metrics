@@ -147,6 +147,9 @@ class TraditionalCriteriaAccumulator:
         gts: VADAnnotation
             Video anomaly detection groundtruth of a video.
         """
+        assert not preds.is_gt, "The given prediction file has 'is_gt' flag!"
+        if gts.is_gt is not None:
+            assert gts.is_gt, "The given ground-truth file has no 'is_gt' flag!"
         use_region_mtrc = preds.is_anomalous_regions_available and gts.is_anomalous_regions_available
         self.__use_region_mtrc.append(use_region_mtrc)
         for thr in self.anomaly_score_thresholds:
@@ -450,6 +453,9 @@ class CurrentCriteriaAccumulator:
         gts: VADAnnotation
             Video anomaly detection groundtruth of a video.
         """
+        assert not preds.is_gt, "The given prediction file has 'is_gt' flag!"
+        if gts.is_gt is not None:
+            assert gts.is_gt, "The given ground-truth file has no 'is_gt' flag!"
         use_region_mtrc = preds.is_anomalous_regions_available and gts.is_anomalous_regions_available
         self.__use_region_mtrc.append(use_region_mtrc)
         use_track_mtrc = gts.is_anomaly_track_id_available

@@ -55,10 +55,10 @@ def evaluate(
         raise ValueError("Frames count Pred != frames count GT")
     results = {}
     results.update(
-        TraditionalCriteriaAccumulator()(pred_annos, gt_annos)
+        TraditionalCriteriaAccumulator()(preds=pred_annos, gts=gt_annos)
     )
     results.update(
-        CurrentCriteriaAccumulator(alpha=alpha, beta=beta)(pred_annos, gt_annos))
+        CurrentCriteriaAccumulator(alpha=alpha, beta=beta)(preds=pred_annos, gts=gt_annos))
     return results
 
 
@@ -145,8 +145,8 @@ def accumulated_evaluate(
             pred_annos = data_schema.data_parser(json.load(fp))
         if gt_annos.frames_count != pred_annos.frames_count:
             raise ValueError("Frames count Pred != frames count GT")
-        trad_accum.update(pred_annos, gt_annos)
-        cur_accum.update(pred_annos, gt_annos)
+        trad_accum.update(preds=pred_annos, gts=gt_annos)
+        cur_accum.update(preds=pred_annos, gts=gt_annos)
     results = {}
     results.update(trad_accum.summarize())
     results.update(cur_accum.summarize())
