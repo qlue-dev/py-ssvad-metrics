@@ -22,6 +22,7 @@ def main(args):
             raise IOError("can not open")
         cap.set(cv2.CAP_PROP_POS_AVI_RATIO, 1)
         _d = dict(
+            is_gt=True,
             frames_count=int(cap.get(cv2.CAP_PROP_FRAME_COUNT)),
             is_anomalous_regions_available=True,
             is_anomaly_track_id_available=True,
@@ -59,8 +60,10 @@ def main(args):
                         bounding_box=[
                             max(0, math.floor(row["x"]-row["w"]/2)),
                             max(0, math.floor(row["y"]-row["h"]/2)),
-                            min(_d['frame_width'], math.ceil(row["x"]+row["w"]/2)),
-                            min(_d['frame_height'], math.ceil(row["y"]+row["h"]/2))
+                            min(_d['frame_width'], math.ceil(
+                                row["x"]+row["w"]/2)),
+                            min(_d['frame_height'], math.ceil(
+                                row["y"]+row["h"]/2))
                         ],
                         score=1.0
                     )
