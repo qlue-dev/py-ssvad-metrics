@@ -208,6 +208,11 @@ class TraditionalCriteriaAccumulator:
             p_tprs.append(p_tpr_thr)
             p_fprs.append(p_fpr_thr)
         # Frame-level ROC AUC
+        f_sorted_indices = np.argsort(f_fprs)
+        f_fprs = [
+            f_fprs[i] for i in f_sorted_indices]
+        f_tprs = [
+            f_tprs[i] for i in f_sorted_indices]
         self.__result["frame_roc_auc"] = auc(f_fprs, f_tprs)
         # Frame-level EER
         self.__result["frame_eer"] = brentq(
@@ -216,11 +221,11 @@ class TraditionalCriteriaAccumulator:
             f_fprs, self.anomaly_score_thresholds)(self.__result["frame_eer"]))
         if all(self.__use_region_mtrc):
             # sort x axis
-            f_sorted_indices = np.argsort(p_fprs)
+            p_sorted_indices = np.argsort(p_fprs)
             p_fprs = [
-                p_fprs[i] for i in f_sorted_indices]
+                p_fprs[i] for i in p_sorted_indices]
             p_tprs = [
-                p_tprs[i] for i in f_sorted_indices]
+                p_tprs[i] for i in p_sorted_indices]
             # Pixel-level ROC AUC
             self.__result["pixel_roc_auc"] = auc(p_fprs, p_tprs)
             # Pixel-level EER
@@ -519,6 +524,13 @@ class CurrentCriteriaAccumulator:
             rbdrs_.append(rbdr)
             fprs_.append(fpr)
             tbdrs_.append(tbdr)
+        sorted_indices = np.argsort(fprs_)
+        fprs_ = [
+            fprs_[i] for i in sorted_indices]
+        rbdrs_ = [
+            rbdrs_[i] for i in sorted_indices]
+        tbdrs_ = [
+            tbdrs_[i] for i in sorted_indices]
         self.__result["region_roc_auc"] = auc(fprs_, rbdrs_)
         if all(self.__use_track_mtrc):
             self.__result["track_roc_auc"] = auc(fprs_, tbdrs_)
