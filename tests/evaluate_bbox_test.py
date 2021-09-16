@@ -2,11 +2,11 @@ import numpy as np
 import ssvad_metrics
 
 
-def test_evaluate_gt_pred():
+def test_evaluate_gt_pred_single():
     result = ssvad_metrics.metrics.evaluate(
         "tests/samples_bbox_gt/Test001_gt.json",
         "tests/samples_bbox_pred/Test001_pred.json")
-    # print(result)
+    print(result)
 
 
 def test_accumulated_evaluate_gt_pred():
@@ -15,7 +15,7 @@ def test_accumulated_evaluate_gt_pred():
         "tests/samples_bbox_pred",
         gt_name_suffix="_gt",
         pred_name_suffix="_pred")
-    # print(result)
+    print(result)
 
 
 def test_allclose():

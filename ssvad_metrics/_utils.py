@@ -23,7 +23,7 @@ def mask_iou(arr1: np.ndarray, arr2: np.ndarray) -> float:
     return iou_score
 
 
-# @njit(fastmath=True)
+@njit(fastmath=True)
 def bb_s_to_fp32_mask(
         bboxes: np.ndarray, scores: np.ndarray, frame_shape: Tuple[int, int]) -> np.ndarray:
     """

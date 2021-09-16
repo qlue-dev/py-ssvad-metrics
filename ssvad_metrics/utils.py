@@ -24,6 +24,8 @@ def anomalous_regions_to_float_mask(
     Convert list of `AnomalousRegion` instances into a semantic mask with floating value.
     `frame_shape` must be (height, width).
     """
+    if not len(anomalous_regions):
+        return np.zeros(frame_shape, np.float32)
     bboxes = np.asarray(
         [_ar.bounding_box for _ar in anomalous_regions], dtype=np.int32)
     scores = np.asarray(
