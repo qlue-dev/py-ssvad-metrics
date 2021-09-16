@@ -35,3 +35,10 @@ def test_evaluate_gt_gt_single():
         "tests/samples_bbox_gt/Test001_gt.json",
         "tests/samples_bbox_gt/Test001_gt.json")
     print(result)
+
+
+def test_evaluate_gt_pnp_single():
+    result = ssvad_metrics.metrics.evaluate(
+        "tests/samples_bbox_gt/Test001_gt.json",
+        "tests/samples_bbox_pred/Test001_pred_near_perfect.json")
+    print(result)
