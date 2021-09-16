@@ -21,16 +21,18 @@ def _get_trad_calcs(
     if use_region_mtrc:
         pred_frm_shp = (preds.frame_height, preds.frame_width)
         gt_frm_shp = (gts.frame_height, gts.frame_width)
-        assert pred_frm_shp == gt_frm_shp, (
-            "Predictions frame shape %s mismatched "
-            "with the ground-truth %s!" % (pred_frm_shp, gt_frm_shp))
+        if pred_frm_shp != gt_frm_shp:
+            raise ValueError((
+                "Predictions frame shape %s mismatched "
+                "with the ground-truth %s!" % (pred_frm_shp, gt_frm_shp)))
         for pred_frm, gt_frm in zip(preds.frames, gts.frames):
             # GT
             if gt_frm.pixel_level_scores_map is not None:
                 gt_m = load_pixel_score_map(gt_frm.pixel_level_scores_map)
-                assert gt_m.shape == gt_frm_shp, (
-                    "The loaded ground-truth anomalous region frame shape %s "
-                    "mismatched with the frame shape defined in the annotation %s!") % (gt_m.shape, gt_frm_shp)
+                if gt_m.shape != gt_frm_shp:
+                    raise ValueError((
+                        "The loaded ground-truth anomalous region frame shape %s "
+                        "mismatched with the frame shape defined in the annotation %s!") % (gt_m.shape, gt_frm_shp))
             elif gt_frm.anomalous_regions is not None:
                 gt_m = anomalous_regions_to_float_mask(
                     gt_frm.anomalous_regions, (gts.frame_height, gts.frame_width))
@@ -44,9 +46,10 @@ def _get_trad_calcs(
             # Frame-level calc
             if pred_frm.pixel_level_scores_map is not None:
                 pred_m = load_pixel_score_map(pred_frm.pixel_level_scores_map)
-                assert pred_m.shape == pred_frm_shp, (
-                    "The loaded predictions anomalous region frame shape %s "
-                    "mismatched with the frame shape defined in the annotation %s!") % (pred_m.shape, pred_frm_shp)
+                if pred_m.shape != pred_frm_shp:
+                    raise ValueError((
+                        "The loaded predictions anomalous region frame shape %s "
+                        "mismatched with the frame shape defined in the annotation %s!") % (pred_m.shape, pred_frm_shp))
             elif pred_frm.anomalous_regions is not None:
                 pred_m = anomalous_regions_to_float_mask(
                     pred_frm.anomalous_regions, (preds.frame_height, preds.frame_width))
@@ -147,9 +150,12 @@ class TraditionalCriteriaAccumulator:
         gts: VADAnnotation
             Video anomaly detection groundtruth of a video.
         """
-        assert not preds.is_gt, "The given prediction file has 'is_gt' flag!"
-        if gts.is_gt is not None:
-            assert gts.is_gt, "The given ground-truth file has no 'is_gt' flag!"
+        if preds.is_gt:
+            raise ValueError(
+                "The given prediction file has is_gt=True flag!")
+        if gts.is_gt is not None and not gts.is_gt:
+            raise ValueError(
+                "The given ground-truth file has is_gt=False flag!")
         use_region_mtrc = preds.is_anomalous_regions_available and gts.is_anomalous_regions_available
         self.__use_region_mtrc.append(use_region_mtrc)
         for thr in self.anomaly_score_thresholds:
@@ -453,9 +459,12 @@ class CurrentCriteriaAccumulator:
         gts: VADAnnotation
             Video anomaly detection groundtruth of a video.
         """
-        assert not preds.is_gt, "The given prediction file has 'is_gt' flag!"
-        if gts.is_gt is not None:
-            assert gts.is_gt, "The given ground-truth file has no 'is_gt' flag!"
+        if preds.is_gt:
+            raise ValueError(
+                "The given prediction file has is_gt=True flag!")
+        if gts.is_gt is not None and not gts.is_gt:
+            raise ValueError(
+                "The given ground-truth file has is_gt=False flag!")
         use_region_mtrc = preds.is_anomalous_regions_available and gts.is_anomalous_regions_available
         self.__use_region_mtrc.append(use_region_mtrc)
         use_track_mtrc = gts.is_anomaly_track_id_available

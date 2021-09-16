@@ -25,15 +25,18 @@ def load_pixel_score_map(p: str) -> np.ndarray:
         # unsupported ext
         raise ValueError(
             "Unsupported file extension '%s' for anomalous region file!" % ext)
-    assert arr.dtype == np.float32, (
-        "Pixel score map array must have np.float32 (single precision floating point) "
-        "data type! (provided: %s)") % arr.dtype
-    assert arr.min() >= 0.0 and arr.max() <= 1.0, (
-        "Scores must be in the range of 0.0 to 1.0! "
-        "(current scores range: [%.2f, %.2f])"
-    ) % (arr.min(), arr.max())
-    assert len(arr.shape) == 2, "Pixel score map must be 2D array, however %dD array given!" % len(
-        arr.shape)
+    if arr.dtype != np.float32:
+        raise ValueError((
+            "Pixel score map array must have np.float32 (single precision floating point) "
+            "data type! (provided: %s)") % arr.dtype)
+    if arr.min() < 0.0 or arr.max() > 1.0:
+        raise ValueError((
+            "Scores must be in the range of 0.0 to 1.0! "
+            "(current scores range: [%.2f, %.2f])"
+        ) % (arr.min(), arr.max()))
+    if len(arr.shape) != 2:
+        raise ValueError(
+            "Pixel score map must be 2D array, however %dD array given!" % len(arr.shape))
     return arr
 
 
