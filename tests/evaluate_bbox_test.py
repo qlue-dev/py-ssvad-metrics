@@ -28,3 +28,10 @@ def test_allclose():
         gt_name_suffix="_gt",
         pred_name_suffix="_pred")
     assert np.allclose(list(result.values()), list(result_accum.values()))
+
+
+def test_evaluate_gt_gt_single():
+    result = ssvad_metrics.metrics.evaluate(
+        "tests/samples_bbox_gt/Test001_gt.json",
+        "tests/samples_bbox_gt/Test001_gt.json")
+    print(result)
