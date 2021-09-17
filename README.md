@@ -42,7 +42,7 @@ pip install py-ssvad-metrics
 
     ```python
     import ssvad_metrics
-    result = ssvad_metrics.metrics.evaluate(
+    result = ssvad_metrics.evaluate(
         "tests/gt_examples/Test001_gt.json",
         "tests/pred_examples/Test001_pred.json")
     ```
@@ -51,7 +51,7 @@ pip install py-ssvad-metrics
 
     ```python
     import ssvad_metrics
-    result = ssvad_metrics.metrics.accumulated_evaluate(
+    result = ssvad_metrics.accumulated_evaluate(
         "tests/gt_examples",
         "tests/pred_examples",
         gt_name_suffix="_gt",

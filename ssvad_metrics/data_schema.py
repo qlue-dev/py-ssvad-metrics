@@ -131,8 +131,15 @@ class VADAnnotation(BaseModel):
         extra = "allow"
 
 
-def data_parser(annos: dict) -> VADAnnotation:
+def data_parser(annos: dict, score_maps_root_dir: Optional[str]) -> VADAnnotation:
     """
     Parse data.
+    Also, join `score_maps_root_dir` to `VADFrame.pixel_level_scores_map`.
     """
+    if score_maps_root_dir is not None:
+        for f in annos["frames"]:
+            if not isinstance(f["pixel_level_scores_map"], str):
+                continue
+            f["pixel_level_scores_map"] = os.path.join(
+                score_maps_root_dir, f["pixel_level_scores_map"])
     return VADAnnotation(**annos)
