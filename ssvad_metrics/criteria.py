@@ -31,7 +31,7 @@ def _get_trad_calcs(
                 gt_m = load_pixel_score_map(gt_frm.pixel_level_scores_map)
                 if gt_m.shape != gt_frm_shp:
                     raise ValueError((
-                        "The loaded ground-truth anomalous region frame shape %s "
+                        "The loaded ground-truth anomaly score map frame shape %s "
                         "mismatched with the frame shape defined in the annotation %s!") % (gt_m.shape, gt_frm_shp))
             elif gt_frm.anomalous_regions is not None:
                 gt_m = anomalous_regions_to_float_mask(
@@ -48,7 +48,7 @@ def _get_trad_calcs(
                 pred_m = load_pixel_score_map(pred_frm.pixel_level_scores_map)
                 if pred_m.shape != pred_frm_shp:
                     raise ValueError((
-                        "The loaded predictions anomalous region frame shape %s "
+                        "The loaded predictions anomaly score map frame shape %s "
                         "mismatched with the frame shape defined in the annotation %s!") % (pred_m.shape, pred_frm_shp))
             elif pred_frm.anomalous_regions is not None:
                 pred_m = anomalous_regions_to_float_mask(

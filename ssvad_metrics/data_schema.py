@@ -24,7 +24,7 @@ def load_pixel_score_map(p: str) -> np.ndarray:
     else:
         # unsupported ext
         raise ValueError(
-            "Unsupported file extension '%s' for anomalous region file!" % ext)
+            "Unsupported file extension '%s' for anomaly score map file!" % ext)
     if arr.dtype != np.float32:
         raise ValueError((
             "Pixel score map array must have np.float32 (single precision floating point) "
@@ -91,10 +91,10 @@ class VADFrame(BaseModel):
         ext = os.path.splitext(v)[1]
         if not os.path.exists(v):
             raise FileNotFoundError(
-                "Anomalous region file '%s' is not exist!" % v)
+                "Anomaly score map file '%s' is not exist!" % v)
         if ext not in PX_MAP_EXTS:
             raise ValueError(
-                "Unsupported file extension '%s' for anomalous region file!" % ext)
+                "Unsupported file extension '%s' for anomaly score map file!" % ext)
         return v
 
 

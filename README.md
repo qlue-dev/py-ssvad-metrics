@@ -36,7 +36,7 @@ pip install py-ssvad-metrics
 
 1. Prepare ground-truth JSON files and prediction JSON files (also the pixel anomaly score map linked files for pixel-level predictions and groundtruths).
     - [`ssvad_metrics.data_schema.VADAnnotation`](ssvad_metrics/data_schema.py) can be used for the data structure reference and validator of the JSON file.
-    - JSON file examples are in the [tests folder](tests).
+    - JSON file examples are in the [samples folder](samples).
     - For UCSD Pedestrian 1 and 2 datasets, CUHK Avenue dataset, and Street Scene dataset, we provided scripts for converting ground-truth annotation files from Street Scene dataset provided by the paper (txt files, each row contains: \<filename> \<track_id> \<x_center> \<y_center> \<width> \<height>). Download link is provided in the paper <http://www.merl.com/demos/video-anomaly-detection>.
 1. Example usage for single groundtruth and prediction file pair:
 
