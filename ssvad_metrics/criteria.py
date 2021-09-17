@@ -1,104 +1,18 @@
-from typing import List, Optional, Union
-
+from typing import Tuple
+import cv2
 import numpy as np
 from pydantic import BaseModel
 from scipy.interpolate import interp1d
 from scipy.optimize import brentq
-from sklearn.metrics import auc, jaccard_score
+from sklearn.metrics import auc
 
-from ssvad_metrics.data_schema import AnomalousRegion, VADAnnotation
-from ssvad_metrics.utils import anomalous_regions_to_float_mask, iou_single
+from ssvad_metrics._utils import mask_iou, trad_pix_calc
+from ssvad_metrics.data_schema import VADAnnotation, VADFrame, load_pixel_score_map
+from ssvad_metrics.utils import anomalous_regions_to_float_mask
 
 NUM_POINTS = 103
 ANOMALY_SCORE_THRESHOLDS = np.linspace(1.01, -0.01, NUM_POINTS)
 
-# def _get_traditional_tpr_fpr_masks(
-#         pred_masks: Union[np.ndarray, List[np.ndarray]],
-#         gt_masks: Union[np.ndarray, List[np.ndarray]],
-#         threshold: float) -> tuple:
-#     f_tp, f_fp, f_ps, f_ns = 0, 0, 0, 0
-#     p_tp, p_fp = 0, 0
-#     for pred_m, gt_m in zip(pred_masks, gt_masks):
-#         # GT
-#         gt_m_bool = gt_m.astype(np.bool)
-#         is_gt_m_pos = np.any(gt_m_bool)
-#         # Frame-level calc
-#         pred_m_pos = pred_m >= threshold
-#         f_is_pred_pos = np.any(pred_m_pos)
-#         # Counting f_tp, f_fp, f_ps, f_ns
-#         if is_gt_m_pos:
-#             f_ps += 1
-#             # Frame-level
-#             if f_is_pred_pos:
-#                 f_tp += 1
-#             # Pixel-level
-#             p_is_pred_pos = np.sum(np.multiply(pred_m_pos, gt_m_bool)) \
-#                 >= (0.4 * np.sum(gt_m_bool))
-#             if p_is_pred_pos:
-#                 p_tp += 1
-#         else:
-#             f_ns += 1
-#             # Frame-level and pixel-level has same criterion
-#             if f_is_pred_pos:
-#                 f_fp += 1
-#                 p_fp += 1
-#     f_tpr_thr = f_tp / f_ps
-#     f_fpr_thr = f_fp / f_ns
-#     p_tpr_thr = p_tp / f_ps
-#     p_fpr_thr = p_fp / f_ns
-#     return f_tpr_thr, f_fpr_thr, p_tpr_thr, p_fpr_thr
-
-
-# def traditional_criteria_masks(
-#         pred_masks: Union[np.ndarray, List[np.ndarray]],
-#         gt_masks: Union[np.ndarray, List[np.ndarray]]) -> dict:
-#     """
-#     Evaluate the single-scene video anomaly detection
-#     using the traditional criteria.
-
-#     Reference:
-#     B. Ramachandra, M. Jones and R. R. Vatsavai,
-#     "A Survey of Single-Scene Video Anomaly Detection,"
-#     in IEEE Transactions on Pattern Analysis and Machine Intelligence,
-#     doi: 10.1109/TPAMI.2020.3040591.
-
-#     PARAMETERS
-#     ----------
-#     pred_masks: Union[np.ndarray, List[np.ndarray]]
-#         Semantic mask video anomaly prediction results of all frames.
-#     gt_masks: Union[np.ndarray, List[np.ndarray]]
-#         Semantic mask video anomaly ground-truths of all frames.
-
-#     RETURN
-#     ------
-#     dict
-#         The results.
-#     """
-#     anomaly_score_thresholds = np.linspace(1., 0., 1001)
-#     f_tprs, f_fprs, p_tprs, p_fprs = [], [], [], []
-#     for thr in anomaly_score_thresholds:
-#         f_tpr_thr, f_fpr_thr, p_tpr_thr, p_fpr_thr = _get_traditional_tpr_fpr_masks(
-#             pred_masks, gt_masks, thr)
-#         f_tprs.append(f_tpr_thr)
-#         f_fprs.append(f_fpr_thr)
-#         p_tprs.append(p_tpr_thr)
-#         p_fprs.append(p_fpr_thr)
-#     result = {}
-#     # Frame-level ROC AUC
-#     result["frame_roc_auc"] = auc(f_fprs, f_tprs)
-#     # Frame-level EER
-#     result["frame_eer"] = brentq(
-#         lambda x: 1. - x - interp1d(f_fprs, f_tprs)(x), 0., 1.)
-#     result["frame_thresh_at_eer"] = interp1d(
-#         f_fprs, anomaly_score_thresholds)(result["frame_eer"])
-#     # Pixel-level ROC AUC
-#     result["pixel_roc_auc"] = auc(p_fprs, p_tprs)
-#     # Pixel-level EER
-#     result["pixel_eer"] = brentq(
-#         lambda x: 1. - x - interp1d(p_fprs, p_tprs)(x), 0., 1.)
-#     result["pixel_thresh_at_eer"] = interp1d(
-#         p_fprs, anomaly_score_thresholds)(result["pixel_eer"])
-#     return result
 
 def _get_trad_calcs(
         preds: VADAnnotation, gts: VADAnnotation, threshold: float, use_region_mtrc: bool) -> tuple:
@@ -107,15 +21,43 @@ def _get_trad_calcs(
     if use_region_mtrc:
         pred_frm_shp = (preds.frame_height, preds.frame_width)
         gt_frm_shp = (gts.frame_height, gts.frame_width)
+        if pred_frm_shp != gt_frm_shp:
+            raise ValueError((
+                "Predictions frame shape %s mismatched "
+                "with the ground-truth %s!" % (pred_frm_shp, gt_frm_shp)))
         for pred_frm, gt_frm in zip(preds.frames, gts.frames):
             # GT
-            gt_m = anomalous_regions_to_float_mask(
-                gt_frm.anomalous_regions, gt_frm_shp)
+            if gt_frm.pixel_level_scores_map is not None:
+                gt_m = load_pixel_score_map(gt_frm.pixel_level_scores_map)
+                if gt_m.shape != gt_frm_shp:
+                    raise ValueError((
+                        "The loaded ground-truth anomaly score map frame shape %s "
+                        "mismatched with the frame shape defined in the annotation %s!") % (gt_m.shape, gt_frm_shp))
+            elif gt_frm.anomalous_regions is not None:
+                gt_m = anomalous_regions_to_float_mask(
+                    gt_frm.anomalous_regions, (gts.frame_height, gts.frame_width))
+            else:
+                raise ValueError((
+                    "'is_anomalous_regions_available' is True "
+                    "but no 'pixel_level_scores_map' nor 'anomalous_regions' "
+                    "in frame_id=%d of GT file!") % gt_frm.frame_id)
             gt_m_bool = gt_m.astype(np.bool)
             is_gt_m_pos = np.any(gt_m_bool)
             # Frame-level calc
-            pred_m = anomalous_regions_to_float_mask(
-                pred_frm.anomalous_regions, pred_frm_shp)
+            if pred_frm.pixel_level_scores_map is not None:
+                pred_m = load_pixel_score_map(pred_frm.pixel_level_scores_map)
+                if pred_m.shape != pred_frm_shp:
+                    raise ValueError((
+                        "The loaded predictions anomaly score map frame shape %s "
+                        "mismatched with the frame shape defined in the annotation %s!") % (pred_m.shape, pred_frm_shp))
+            elif pred_frm.anomalous_regions is not None:
+                pred_m = anomalous_regions_to_float_mask(
+                    pred_frm.anomalous_regions, (preds.frame_height, preds.frame_width))
+            else:
+                raise ValueError((
+                    "'is_anomalous_regions_available' is True "
+                    "but no 'pixel_level_scores_map' nor 'anomalous_regions' "
+                    "in frame_id=%d of pred file!") % pred_frm.frame_id)
             pred_m_pos = pred_m >= threshold
             f_is_pred_pos = np.any(pred_m_pos)
             # Counting f_tp, f_fp, f_ps, f_ns
@@ -125,8 +67,7 @@ def _get_trad_calcs(
                 if f_is_pred_pos:
                     f_tp += 1
                 # Pixel-level
-                p_is_pred_pos = np.sum(np.multiply(pred_m_pos, gt_m_bool)) \
-                    >= (0.4 * np.sum(gt_m_bool))
+                p_is_pred_pos = trad_pix_calc(pred_m_pos, gt_m_bool)
                 if p_is_pred_pos:
                     p_tp += 1
             else:
@@ -209,6 +150,12 @@ class TraditionalCriteriaAccumulator:
         gts: VADAnnotation
             Video anomaly detection groundtruth of a video.
         """
+        if preds.is_gt:
+            raise ValueError(
+                "The given prediction file has is_gt=True flag!")
+        if gts.is_gt is not None and not gts.is_gt:
+            raise ValueError(
+                "The given ground-truth file has is_gt=False flag!")
         use_region_mtrc = preds.is_anomalous_regions_available and gts.is_anomalous_regions_available
         self.__use_region_mtrc.append(use_region_mtrc)
         for thr in self.anomaly_score_thresholds:
@@ -261,6 +208,11 @@ class TraditionalCriteriaAccumulator:
             p_tprs.append(p_tpr_thr)
             p_fprs.append(p_fpr_thr)
         # Frame-level ROC AUC
+        f_sorted_indices = np.argsort(f_fprs)
+        f_fprs = [
+            f_fprs[i] for i in f_sorted_indices]
+        f_tprs = [
+            f_tprs[i] for i in f_sorted_indices]
         self.__result["frame_roc_auc"] = auc(f_fprs, f_tprs)
         # Frame-level EER
         self.__result["frame_eer"] = brentq(
@@ -269,11 +221,11 @@ class TraditionalCriteriaAccumulator:
             f_fprs, self.anomaly_score_thresholds)(self.__result["frame_eer"]))
         if all(self.__use_region_mtrc):
             # sort x axis
-            f_sorted_indices = np.argsort(p_fprs)
+            p_sorted_indices = np.argsort(p_fprs)
             p_fprs = [
-                p_fprs[i] for i in f_sorted_indices]
+                p_fprs[i] for i in p_sorted_indices]
             p_tprs = [
-                p_tprs[i] for i in f_sorted_indices]
+                p_tprs[i] for i in p_sorted_indices]
             # Pixel-level ROC AUC
             self.__result["pixel_roc_auc"] = auc(p_fprs, p_tprs)
             # Pixel-level EER
@@ -321,6 +273,43 @@ class TraditionalCriteriaAccumulator:
         return self.summarize()
 
 
+def _get_connected_components(
+        threshold: float,
+        gt_frm: VADFrame,
+        gt_frm_shape: Tuple[int, int],
+        pred_frm: VADFrame,
+        pred_frm_shape: Tuple[int, int]) -> Tuple[int, np.ndarray, int, np.ndarray]:
+    if gt_frm.pixel_level_scores_map is not None:
+        gt_m = load_pixel_score_map(gt_frm.pixel_level_scores_map)
+    elif gt_frm.anomalous_regions is not None:
+        gt_m = anomalous_regions_to_float_mask(
+            gt_frm.anomalous_regions, gt_frm_shape)
+    else:
+        raise ValueError((
+            "'is_anomalous_regions_available' is True "
+            "but no 'pixel_level_scores_map' nor 'anomalous_regions' "
+            "in frame_id=%d of GT file!") % gt_frm.frame_id)
+    gt_m = gt_m.astype(np.bool) * np.uint8(255)
+    gt_num_ccs, gt_cc_labels = cv2.connectedComponents(
+        gt_m, connectivity=8, ltype=cv2.CV_32S)
+
+    if pred_frm.pixel_level_scores_map is not None:
+        pred_m = load_pixel_score_map(pred_frm.pixel_level_scores_map)
+    elif pred_frm.anomalous_regions is not None:
+        pred_m = anomalous_regions_to_float_mask(
+            pred_frm.anomalous_regions, pred_frm_shape)
+    else:
+        raise ValueError((
+            "'is_anomalous_regions_available' is True "
+            "but no 'pixel_level_scores_map' nor 'anomalous_regions' "
+            "in frame_id=%d of pred file!") % pred_frm.frame_id)
+    pred_m = (pred_m >= threshold) * np.uint8(255)
+    pred_num_ccs, pred_cc_labels = cv2.connectedComponents(
+        pred_m, connectivity=8, ltype=cv2.CV_32S)
+
+    return gt_num_ccs, gt_cc_labels, pred_num_ccs, pred_cc_labels
+
+
 def _get_cur_calcs(
         preds: VADAnnotation,
         gts: VADAnnotation,
@@ -334,12 +323,6 @@ def _get_cur_calcs(
     ntp, tar = 0, 0
     nfp, n_fs = 0, 0
     gt_a_trks, pred_a_trks = {}, {}
-    # implicitly give anomaly score of 0 to the rest of the frame (i.e., not inside a bounding box)
-    for pred_f in pred_frms:
-        pred_f.anomalous_regions.append(
-            AnomalousRegion(
-                bounding_box=[0, 0, preds.frame_width, preds.frame_height],
-                score=0.))
     # calculate frame-by-frame
     for pred_f, gt_f in zip(pred_frms, gt_frms):
         n_fs += 1
@@ -352,41 +335,51 @@ def _get_cur_calcs(
                 pred_a_trk = pred_a_trks.setdefault(track_id, list())
                 pred_a_trk.append(pred_f)
         if use_region_mtrc:
+            # load mask and get connected components
+            # NOTE: number of connected components always include backgroud
+            # (even all pixels are True). label 0 is the background (BG).
+            gt_num_ccs, gt_cc_labels, pred_num_ccs, pred_cc_labels = _get_connected_components(
+                threshold,
+                gt_f, (gts.frame_height, gts.frame_width),
+                pred_f, (preds.frame_height, preds.frame_width))
             # calculate region metric
-            tar += len(gt_f.anomalous_regions)
-            for gt_ar in gt_f.anomalous_regions:
-                for pred_ar in pred_f.anomalous_regions:
-                    if pred_ar.score < threshold:
-                        continue
-                    iou = iou_single(gt_ar.bounding_box, pred_ar.bounding_box)
+            tar += gt_num_ccs - 1  # minus BG
+            for k in range(1, gt_num_ccs):  # skip BG
+                gt_ar_m = gt_cc_labels == k
+                for j in range(1, pred_num_ccs):  # skip BG
+                    pred_ar_m = pred_cc_labels == j
+                    iou = mask_iou(gt_ar_m, pred_ar_m)
                     if iou >= beta:
                         ntp += 1
                         break
-            for pred_ar in pred_f.anomalous_regions:
-                if pred_ar.score < threshold:
-                    continue
-                for gt_ar in gt_f.anomalous_regions:
-                    iou = iou_single(gt_ar.bounding_box, pred_ar.bounding_box)
+            for j in range(1, pred_num_ccs):
+                pred_ar_m = pred_cc_labels == j
+                for k in range(1, gt_num_ccs):
+                    gt_ar_m = gt_cc_labels == k
+                    iou = mask_iou(gt_ar_m, pred_ar_m)
                     if iou >= beta:
                         break
                 else:
-                    # pred_bbox do not overlap enough with any gt_bbox
+                    # pred_ar_m do not IoU enough with any gt_ar_m
                     nfp += 1
 
-    if use_track_mtrc:
+    if use_region_mtrc and use_track_mtrc:
         nat = len(gt_a_trks)
         ntpt = 0
         for gt_a_trk, pred_a_trk in zip(gt_a_trks.values(), pred_a_trks.values()):
             _tp = 0
             lk_size = 0
             for gt_f, pred_f in zip(gt_a_trk, pred_a_trk):
-                for gt_ar in gt_f.anomalous_regions:
+                gt_num_ccs, gt_cc_labels, pred_num_ccs, pred_cc_labels = _get_connected_components(
+                    threshold,
+                    gt_f, (gts.frame_height, gts.frame_width),
+                    pred_f, (preds.frame_height, preds.frame_width))
+                for k in range(1, gt_num_ccs):  # skip BG
+                    gt_ar_m = gt_cc_labels == k
                     lk_size += 1
-                    for pred_ar in pred_f.anomalous_regions:
-                        if pred_ar.score < threshold:
-                            continue
-                        iou = iou_single(gt_ar.bounding_box,
-                                         pred_ar.bounding_box)
+                    for j in range(1, pred_num_ccs):  # skip BG
+                        pred_ar_m = pred_cc_labels == j
+                        iou = mask_iou(gt_ar_m, pred_ar_m)
                         if iou >= beta:
                             _tp += 1
                             break
@@ -471,9 +464,15 @@ class CurrentCriteriaAccumulator:
         gts: VADAnnotation
             Video anomaly detection groundtruth of a video.
         """
+        if preds.is_gt:
+            raise ValueError(
+                "The given prediction file has is_gt=True flag!")
+        if gts.is_gt is not None and not gts.is_gt:
+            raise ValueError(
+                "The given ground-truth file has is_gt=False flag!")
         use_region_mtrc = preds.is_anomalous_regions_available and gts.is_anomalous_regions_available
         self.__use_region_mtrc.append(use_region_mtrc)
-        use_track_mtrc = preds.is_anomaly_track_id_available and gts.is_anomaly_track_id_available
+        use_track_mtrc = gts.is_anomaly_track_id_available
         self.__use_track_mtrc.append(use_track_mtrc)
         for thr in self.anomaly_score_thresholds:
             ntp, tar, nfp, n_fs, nat, ntpt = _get_cur_calcs(
@@ -525,6 +524,13 @@ class CurrentCriteriaAccumulator:
             rbdrs_.append(rbdr)
             fprs_.append(fpr)
             tbdrs_.append(tbdr)
+        sorted_indices = np.argsort(fprs_)
+        fprs_ = [
+            fprs_[i] for i in sorted_indices]
+        rbdrs_ = [
+            rbdrs_[i] for i in sorted_indices]
+        tbdrs_ = [
+            tbdrs_[i] for i in sorted_indices]
         self.__result["region_roc_auc"] = auc(fprs_, rbdrs_)
         if all(self.__use_track_mtrc):
             self.__result["track_roc_auc"] = auc(fprs_, tbdrs_)

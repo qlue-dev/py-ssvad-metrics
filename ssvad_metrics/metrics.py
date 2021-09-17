@@ -1,6 +1,7 @@
 import json
 import logging
 from pathlib import Path
+from typing import Optional
 
 from tqdm import tqdm
 
@@ -14,6 +15,8 @@ logger = logging.getLogger()
 def evaluate(
         gt_path: str,
         pred_path: str,
+        gt_score_maps_root_dir: Optional[str] = None,
+        pred_score_maps_root_dir: Optional[str] = None,
         alpha: float = 0.1,
         beta: float = 0.1) -> dict:
     """
@@ -38,6 +41,10 @@ def evaluate(
         Path to VADAnnotation-formatted JSON file containing the prediction results
         of the video anomaly detection. See `data_schema.VADAnnotation.schema()` or
         `data_schema.VADAnnotation.schema_json()` for the JSON schema.
+    gt_score_maps_root_dir: Optional[str] = None
+        The root directory for the pixel-level anomaly scores maps files in the ground-truth JSON.
+    pred_score_maps_root_dir: Optional[str] = None
+        The root directory for the pixel-level anomaly scores maps files in the prediction JSON.
     alpha: float = 0.1
         A threshold used in NTPT calculation. See reference for more information.
     beta: float = 0.1
@@ -48,17 +55,19 @@ def evaluate(
     Dict[str, Any]
     """
     with open(gt_path, "r") as fp:
-        gt_annos = data_schema.data_parser(json.load(fp))
+        gt_annos = data_schema.data_parser(
+            json.load(fp), gt_score_maps_root_dir)
     with open(pred_path, "r") as fp:
-        pred_annos = data_schema.data_parser(json.load(fp))
+        pred_annos = data_schema.data_parser(
+            json.load(fp), pred_score_maps_root_dir)
     if gt_annos.frames_count != pred_annos.frames_count:
         raise ValueError("Frames count Pred != frames count GT")
     results = {}
     results.update(
-        TraditionalCriteriaAccumulator()(pred_annos, gt_annos)
+        TraditionalCriteriaAccumulator()(preds=pred_annos, gts=gt_annos)
     )
     results.update(
-        CurrentCriteriaAccumulator(alpha=alpha, beta=beta)(pred_annos, gt_annos))
+        CurrentCriteriaAccumulator(alpha=alpha, beta=beta)(preds=pred_annos, gts=gt_annos))
     return results
 
 
@@ -67,6 +76,8 @@ def accumulated_evaluate(
         pred_dir: str,
         gt_name_suffix: str = "",
         pred_name_suffix: str = "",
+        gt_score_maps_root_dir: Optional[str] = None,
+        pred_score_maps_root_dir: Optional[str] = None,
         alpha: float = 0.1,
         beta: float = 0.1,
         show_progress: bool = True) -> dict:
@@ -104,6 +115,10 @@ def accumulated_evaluate(
         Fixed file name suffix, if any. Do not include the file extension.
     pred_name_suffix: str = ""
         Fixed file name suffix, if any. Do not include the file extension.
+    gt_score_maps_root_dir: Optional[str] = None
+        The root directory for the pixel-level anomaly scores maps files in the ground-truth JSON.
+    pred_score_maps_root_dir: Optional[str] = None
+        The root directory for the pixel-level anomaly scores maps files in the prediction JSON.
     alpha: float = 0.1
         A threshold used in NTPT calculation. See reference for more information.
     beta: float = 0.1
@@ -140,13 +155,15 @@ def accumulated_evaluate(
     for k in ks:
         logging.info("Processing '%s'", k)
         with open(gt_files[k], "r") as fp:
-            gt_annos = data_schema.data_parser(json.load(fp))
+            gt_annos = data_schema.data_parser(
+                json.load(fp), gt_score_maps_root_dir)
         with open(pred_files[k], "r") as fp:
-            pred_annos = data_schema.data_parser(json.load(fp))
+            pred_annos = data_schema.data_parser(
+                json.load(fp), pred_score_maps_root_dir)
         if gt_annos.frames_count != pred_annos.frames_count:
             raise ValueError("Frames count Pred != frames count GT")
-        trad_accum.update(pred_annos, gt_annos)
-        cur_accum.update(pred_annos, gt_annos)
+        trad_accum.update(preds=pred_annos, gts=gt_annos)
+        cur_accum.update(preds=pred_annos, gts=gt_annos)
     results = {}
     results.update(trad_accum.summarize())
     results.update(cur_accum.summarize())

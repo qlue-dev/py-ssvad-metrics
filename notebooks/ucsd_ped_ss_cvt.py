@@ -6,6 +6,8 @@ import cv2
 import pandas as pd
 import math
 
+from ssvad_metrics.data_schema import VADAnnotation, VADFrame, AnomalousRegion
+
 
 def main(args):
     anno_files = list(Path(args.annos).glob("*.txt"))
@@ -19,6 +21,7 @@ def main(args):
         img = cv2.imread(str(tif_files[0]), cv2.IMREAD_COLOR)
         img_h, img_w = img.shape[:2]
         _d = dict(
+            is_gt=True,
             frames_count=len(tif_files),
             is_anomalous_regions_available=True,
             is_anomaly_track_id_available=True,
@@ -52,12 +55,14 @@ def main(args):
                 )
             else:
                 anomalous_regions = [
-                    {
-                        "bounding_box": [
+                    AnomalousRegion(
+                        bounding_box=[
                             max(0, math.floor(row["x"]-row["w"]/2)),
                             max(0, math.floor(row["y"]-row["h"]/2)),
-                            min(_d['frame_width'], math.ceil(row["x"]+row["w"]/2)),
-                            min(_d['frame_height'], math.ceil(row["y"]+row["h"]/2))
+                            min(_d['frame_width'], math.ceil(
+                                row["x"]+row["w"]/2)),
+                            min(_d['frame_height'], math.ceil(
+                                row["y"]+row["h"]/2))
                         ],
                         score=1.0
                     )

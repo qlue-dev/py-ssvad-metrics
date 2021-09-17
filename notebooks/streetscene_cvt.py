@@ -19,6 +19,7 @@ def main(args):
         img = cv2.imread(str(jpg_files[0]), cv2.IMREAD_COLOR)
         img_h, img_w = img.shape[:2]
         _d = dict(
+            is_gt=True,
             frames_count=len(jpg_files),
             is_anomalous_regions_available=True,
             is_anomaly_track_id_available=True,
@@ -56,8 +57,10 @@ def main(args):
                         bounding_box=[
                             max(0, math.floor(row["x"]-row["w"]/2)),
                             max(0, math.floor(row["y"]-row["h"]/2)),
-                            min(_d['frame_width'], math.ceil(row["x"]+row["w"]/2)),
-                            min(_d['frame_height'], math.ceil(row["y"]+row["h"]/2))
+                            min(_d['frame_width'], math.ceil(
+                                row["x"]+row["w"]/2)),
+                            min(_d['frame_height'], math.ceil(
+                                row["y"]+row["h"]/2))
                         ],
                         score=1.0
                     )

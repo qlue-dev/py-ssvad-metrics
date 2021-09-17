@@ -1,7 +1,10 @@
-from typing import Iterable, Tuple
+from typing import Iterable, List, Tuple
 
 import cv2
 import numpy as np
+
+from ssvad_metrics._utils import bb_s_to_fp32_mask
+from ssvad_metrics.data_schema import AnomalousRegion
 
 
 def bounding_boxes_to_float_mask(
@@ -16,14 +19,22 @@ def bounding_boxes_to_float_mask(
 
 
 def anomalous_regions_to_float_mask(
-        anomalous_regions: list, frame_shape: Tuple[int]) -> np.ndarray:
+        anomalous_regions: List[AnomalousRegion], frame_shape: Tuple[int, int]) -> np.ndarray:
     """
     Convert list of `AnomalousRegion` instances into a semantic mask with floating value.
+    `frame_shape` must be (height, width).
     """
-    _m = np.zeros(frame_shape, np.float32)
-    for _ar in anomalous_regions:
-        cv2.rectangle(_m, _ar.bounding_box, color=_ar.score, thickness=-1)
-    return _m
+    if len(frame_shape) != 2:
+        raise ValueError("frame_shape must be (height, width)!")
+    if not len(anomalous_regions):
+        return np.zeros(frame_shape, np.float32)
+    bboxes = np.asarray(
+        [_ar.bounding_box for _ar in anomalous_regions], dtype=np.int32)
+    scores = np.asarray(
+        [_ar.score for _ar in anomalous_regions], dtype=np.float32)
+    return np.nan_to_num(
+        bb_s_to_fp32_mask(bboxes, scores, frame_shape),
+        copy=False, posinf=0, neginf=0)
 
 
 def iou_single(bb1: Iterable, bb2: Iterable) -> float:
