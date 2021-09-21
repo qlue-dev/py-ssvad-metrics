@@ -18,13 +18,13 @@ logger = logging.getLogger()
 
 
 def _open_image(vad_frame: VADFrame, images_root_dir: Optional[str] = None) -> np.ndarray:
-    p = vad_frame.frame_filename
+    p = vad_frame.frame_filepath
     if not p:
         raise ValueError(
-            "The given ground-truth frame has no frame_filename! To ignore, set show_image to False.")
+            "The given ground-truth frame has no frame_filepath! To ignore, set show_image to False.")
     if images_root_dir is not None:
         p = os.path.join(images_root_dir, p)
-    if os.path.isfile(p):
+    if not os.path.isfile(p):
         raise FileNotFoundError("Can not open image file '%s'!" % p)
     img = cv2.imread(p, cv2.IMREAD_COLOR)
     if len(img.shape) > 3:
@@ -183,7 +183,7 @@ def visualize(
     images_root_dir: Optional[str] = None
         The root directory for the frame files in the ground-truth JSON.
     show_image: bool = True
-        Show background image. Frames in the ground-truth file must contain `frame_filename`.
+        Show background image. Frames in the ground-truth file must contain `frame_filepath`.
     line_thickness: int = 1
         Thickness of the line.
     text_scale: float = 1.0
@@ -296,7 +296,7 @@ def visualize_dir(
     images_root_dir: Optional[str] = None
         The root directory for the frame files in the ground-truth JSON.
     show_image: bool = True
-        Show background image. Frames in the ground-truth file must contain `frame_filename`.
+        Show background image. Frames in the ground-truth file must contain `frame_filepath`.
     line_thickness: float = 1.0
         Thickness of the line.
     text_scale: float = 1.0
