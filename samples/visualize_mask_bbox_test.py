@@ -9,6 +9,7 @@ def test_visualize_bbox_gt_mask_pred_single_with_image():
         "samples/samples_mask_pred_bbox_gt/Test001_gt.json",
         "samples/samples_mask_pred_bbox_gt/Test001_pred.json",
         pred_score_maps_root_dir="samples/samples_mask_pred_bbox_gt",
+        images_root_dir="samples/samples_mask_pred_bbox_gt",
         show_image=True)
     print(result)
 

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 import cv2
+import ffmpeg
 import numpy as np
 from matplotlib import cm
 from tqdm import tqdm
@@ -14,6 +15,7 @@ from ssvad_metrics.data_schema import (VADAnnotation, VADFrame, data_parser,
                                        load_pixel_score_map)
 from ssvad_metrics.utils import connected_components
 
+VIDEO_EXT = ".mp4"
 logger = logging.getLogger()
 
 
@@ -158,6 +160,7 @@ def visualize(
     Solid black color will be used if no overlay masks.
 
     The visualization result will be saved as a video file.
+    NOTE: requires FFMPEG installation.
 
     PARAMETERS
     ----------
@@ -220,31 +223,48 @@ def visualize(
         images = [None for _ in range(len(gts.frames))]
     # Video sink
     if out_dir is None:
-        vsnk_p = os.path.splitext(pred_path)[0] + ".mp4"
+        vsnk_p = os.path.splitext(pred_path)[0] + VIDEO_EXT
     else:
         vsnk_p = os.path.join(
             out_dir,
-            os.path.splitext(os.path.split(pred_path)[1])[0] + ".mp4")
+            os.path.splitext(os.path.split(pred_path)[1])[0] + VIDEO_EXT)
     if video_fps is None:
         video_fps = gts.frame_rate
     if video_fps is None or video_fps <= 0.:
         video_fps = 25.
-    vsnk = cv2.VideoWriter(
-        vsnk_p,
-        fourcc=cv2.VideoWriter_fourcc(*"mp4v"),
-        fps=video_fps,
-        frameSize=(gts.frame_width, gts.frame_height)
+    # vsnk = cv2.VideoWriter(
+    #     vsnk_p,
+    #     fourcc=cv2.VideoWriter_fourcc(*"MJPG"),
+    #     fps=video_fps,
+    #     frameSize=(gts.frame_width, gts.frame_height)
+    # )
+    # if not vsnk.isOpened():
+    #     raise IOError("Unable to create VideoWriter on '%s'!" % vsnk_p)
+
+    vsnk = (
+        ffmpeg
+        .input(
+            'pipe:',
+            hide_banner=None, loglevel="fatal",
+            format='rawvideo', pix_fmt='bgr24', s='{}x{}'.format(gts.frame_width, gts.frame_height))
+        .output(vsnk_p, crf=18, preset='faster', movflags='faststart', vcodec="h264", pix_fmt='yuv420p')
+        .overwrite_output()
+        .run_async(pipe_stdin=True)
     )
-    if not vsnk.isOpened():
-        raise IOError("Unable to create VideoWriter on '%s'!" % vsnk_p)
     # Draw frame by frame
-    for i, (img, pred_frm, gt_frm) in enumerate(zip(images, preds.frames, gts.frames)):
+    for img, pred_frm, gt_frm in zip(images, preds.frames, gts.frames):
         img = _draw_frame(
             show_image, line_thickness, text_scale, text_thickness,
             gts, pred_frm_shp, gt_frm_shp, img, pred_frm, gt_frm)
-        vsnk.write(img)
+        # vsnk.write(img)
+        vsnk.stdin.write(
+            img
+            .astype(np.uint8)
+            .tobytes()
+        )
     # release video
-    vsnk.release()
+    vsnk.stdin.close()
+    vsnk.wait()
 
 
 def visualize_dir(
@@ -265,6 +285,24 @@ def visualize_dir(
     """
     Visualize the single-scene video anomaly detection
     predictions.
+
+    Prediction score maps are drawn as an overlay masks with transparency 60%
+    using RdYlBu colormap (red for 1.0, blue for 0.0). If predictions are using bounding boxes
+    instead, it will be always drawn as red colored bbox with its score. If both are unavailable
+    (frame-level only), then the frame-level score will be drawn
+    on the bottom-left of the image (P:score).
+
+    Ground-truth anomalous maps are drawn as contour lines with green colors.
+    If ground-truth are using bounding boxes instead,
+    it will be always drawn as green colored bbox.
+    If both are unavailable (frame-level only), then the frame-level ground-truth will be drawn
+    on the bottom-left of the image (GT:NEG or GT:POS).
+
+    Overlay masks will be drawn as solid colors (no transparency) when `show_image` is `False`.
+    Solid black color will be used if no overlay masks.
+
+    The visualization result will be saved as a video file.
+    NOTE: requires FFMPEG installation.
 
     PARAMETERS
     ----------
