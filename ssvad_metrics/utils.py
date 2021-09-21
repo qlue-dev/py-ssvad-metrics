@@ -98,3 +98,9 @@ def iou(box, candidates):
     box_area = (np.asarray(box)[2:] - np.asarray(box)[: 2]).prod()
     candidates_area = (candidates[:, 2:] - candidates[:, : 2]).prod(axis=1)
     return intersections_area / (box_area + candidates_area - intersections_area)
+
+
+def connected_components(bool_2d_arr: np.ndarray) -> Tuple[int, np.ndarray]:
+    """Get connected components using cv2.connectedComponents"""
+    return cv2.connectedComponents(
+        bool_2d_arr, connectivity=8, ltype=cv2.CV_32S)

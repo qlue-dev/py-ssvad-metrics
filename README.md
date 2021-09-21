@@ -60,6 +60,11 @@ pip install py-ssvad-metrics
 
 1. For more examplles, see [samples folder](samples).
 
+## Visual Inspection
+
+We also provide tools for visual inspection for checking the *quality of false positives*.
+See [`ssvad_metrics.visualize`](ssvad_metrics/visualizer.py) or [`ssvad_metrics.visualize_dir`](ssvad_metrics/visualizer.py) for details and usage.
+
 ## References
 
 1. B. Ramachandra, M. Jones and R. R. Vatsavai, "A Survey of Single-Scene Video Anomaly Detection," in IEEE Transactions on Pattern Analysis and Machine Intelligence, doi: 10.1109/TPAMI.2020.3040591.
