@@ -34,7 +34,7 @@ def _open_image(vad_frame: VADFrame, images_root_dir: Optional[str] = None) -> n
 
 def _draw_frame(
         show_image: bool,
-        line_thickness: float,
+        line_thickness: int,
         text_scale: float,
         text_thickness: float,
         gts: VADAnnotation,
@@ -135,7 +135,7 @@ def visualize(
         pred_score_maps_root_dir: Optional[str] = None,
         images_root_dir: Optional[str] = None,
         show_image: bool = True,
-        line_thickness: float = 1.0,
+        line_thickness: int = 1,
         text_scale: float = 1.0,
         text_thickness: float = 1.0) -> None:
     """
@@ -184,7 +184,7 @@ def visualize(
         The root directory for the frame files in the ground-truth JSON.
     show_image: bool = True
         Show background image. Frames in the ground-truth file must contain `frame_filename`.
-    line_thickness: float = 1.0
+    line_thickness: int = 1
         Thickness of the line.
     text_scale: float = 1.0
         Scale of the text.
@@ -258,7 +258,7 @@ def visualize_dir(
         pred_score_maps_root_dir: Optional[str] = None,
         images_root_dir: Optional[str] = None,
         show_image: bool = True,
-        line_thickness: float = 1.0,
+        line_thickness: int = 1,
         text_scale: float = 1.0,
         text_thickness: float = 1.0,
         show_progress: bool = True) -> None:
