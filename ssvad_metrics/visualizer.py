@@ -79,6 +79,7 @@ def _draw_frame(
             "nor 'anomalous_regions' nor 'frame_level_score' "
             "available!"))
     # Draw GT
+    gt_frm_scr = None
     if gt_frm.pixel_level_scores_map is not None:
         gt_m = load_pixel_score_map(gt_frm.pixel_level_scores_map)
         if gt_m.shape != gt_frm_shp:
