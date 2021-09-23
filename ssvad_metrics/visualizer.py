@@ -168,7 +168,7 @@ def visualize(
     If both are unavailable (frame-level only), then the frame-level ground-truth will be drawn
     on the bottom-left of the image (GT:NEG or GT:POS).
 
-    Any score below `threshold` in the score map will have 100% transparency.
+    Any score below `threshold` in the score map will totally transparent.
     Overlay masks will always be drawn as solid colors (no transparency) when `show_image` is `False`.
     Solid white color will be used as a background if `show_image` is `False` and no overlay masks.
 
@@ -210,7 +210,7 @@ def visualize(
         Overlay opacity (1 - transparency).
     threshold: float = 0.
         Any score below `threshold` in the score map will
-        have 100% transparency. When `show_image` is `False`,
+        totally transparent. When `show_image` is `False`,
         they will be set to solid white instead.
         If it is bounding boxes, omit bounding boxes that
         have score below `threshold`.
@@ -314,7 +314,7 @@ it will be always drawn as green colored bbox.
 If both are unavailable (frame-level only), then the frame-level ground-truth will be drawn
 on the bottom-left of the image (GT:NEG or GT:POS).
 
-Any score below `threshold` in the score map will have 100% transparency.
+Any score below `threshold` in the score map will totally transparent.
 Overlay masks will always be drawn as solid colors (no transparency) when `show_image` is `False`.
 Solid white color will be used as a background if `show_image` is `False` and no overlay masks.
 
@@ -324,75 +324,99 @@ NOTE: requires FFMPEG installation.""",
     )
     parser.add_argument(
         "gt_path",
-        type=str
+        type=str,
+        help="""Path to VADAnnotation-formatted JSON file containing the ground truth annotation
+of the video anomaly detection. See 'data_schema.VADAnnotation.schema()' or
+'data_schema.VADAnnotation.schema_json()' for the JSON schema."""
     )
     parser.add_argument(
         "pred_path",
-        type=str
+        type=str,
+        help="""Path to VADAnnotation-formatted JSON file containing the prediction results
+of the video anomaly detection. See 'data_schema.VADAnnotation.schema()' or
+'data_schema.VADAnnotation.schema_json()' for the JSON schema."""
     )
     parser.add_argument(
         "--out_dir",
         type=str,
         required=False,
-        default=None
+        default=None,
+        help="""Directory for the video file output.
+If None, then it is the same as 'pred_path' except the extension (mp4)."""
     )
     parser.add_argument(
         "--video_fps",
         type=float,
         required=False,
-        default=None
+        default=None,
+        help="""Force frame-rate of the video.
+By default, it will use frame-rate defined in the ground-truth JSON file.
+If frame-rate is not defined in the ground-truth JSON file, then 25 fps will be used."""
     )
     parser.add_argument(
         "--gt_score_maps_root_dir",
         type=str,
         required=False,
-        default=None
+        default=None,
+        help="The root directory for the pixel-level anomaly scores maps files in the ground-truth JSON."
     )
     parser.add_argument(
         "--pred_score_maps_root_dir",
         type=str,
         required=False,
-        default=None
+        default=None,
+        help="The root directory for the pixel-level anomaly scores maps files in the prediction JSON."
     )
     parser.add_argument(
         "--images_root_dir",
         type=str,
         required=False,
-        default=None
+        default=None,
+        help="The root directory for the frame files in the ground-truth JSON."
     )
     parser.add_argument(
         "--line_thickness",
         type=int,
         required=False,
-        default=1
+        default=1,
+        help="Thickness of the line."
     )
     parser.add_argument(
         "--text_scale",
         type=float,
         required=False,
-        default=1.0
+        default=1.0,
+        help="Scale of the text."
     )
     parser.add_argument(
         "--text_thickness",
         type=float,
         required=False,
-        default=1.0
+        default=1.0,
+        help="Thickness of the text."
     )
     parser.add_argument(
         "--overlay_alpha",
         type=float,
         required=False,
-        default=0.4
+        default=0.4,
+        help="Overlay opacity (1 - transparency)."
     )
     parser.add_argument(
         "--threshold",
         type=float,
         required=False,
-        default=0.
+        default=0.,
+        help="""Any score below 'threshold' in the score map will
+totally transparent. When 'show_image' is 'False',
+they will be set to solid white instead.
+If it is bounding boxes, omit bounding boxes that
+have score below 'threshold'."""
     )
     parser.add_argument(
         "--show_image",
         action="store_true",
+        help="Show background image. Frames in the ground-truth file must contain 'frame_filepath'."
     )
     args = parser.parse_args()
     p = visualize(**vars(args))
@@ -433,7 +457,7 @@ def visualize_dir(
     If both are unavailable (frame-level only), then the frame-level ground-truth will be drawn
     on the bottom-left of the image (GT:NEG or GT:POS).
 
-    Any score below `threshold` in the score map will have 100% transparency.
+    Any score below `threshold` in the score map will totally transparent.
     Overlay masks will always be drawn as solid colors (no transparency) when `show_image` is `False`.
     Solid white color will be used as a background if `show_image` is `False` and no overlay masks.
 
@@ -481,7 +505,7 @@ def visualize_dir(
         Overlay opacity (1 - transparency).
     threshold: float = 0.
         Any score below `threshold` in the score map will
-        have 100% transparency. When `show_image` is `False`,
+        totally transparent. When `show_image` is `False`,
         they will be set to solid white instead.
         If it is bounding boxes, omit bounding boxes that
         have score below `threshold`.
@@ -545,7 +569,7 @@ it will be always drawn as green colored bbox.
 If both are unavailable (frame-level only), then the frame-level ground-truth will be drawn
 on the bottom-left of the image (GT:NEG or GT:POS).
 
-Any score below `threshold` in the score map will have 100% transparency.
+Any score below `threshold` in the score map will totally transparent.
 Overlay masks will always be drawn as solid colors (no transparency) when `show_image` is `False`.
 Solid white color will be used as a background if `show_image` is `False` and no overlay masks.
 
@@ -555,91 +579,120 @@ NOTE: requires FFMPEG installation.""",
     )
     parser.add_argument(
         "gt_dir",
-        type=str
+        type=str,
+        help="""Path to directory containing VADAnnotation-formatted JSON files.
+Each JSON file containing the ground truth annotation
+of the video anomaly detection. See 'data_schema.VADAnnotation.schema()' or
+'data_schema.VADAnnotation.schema_json()' for the JSON schema."""
     )
     parser.add_argument(
         "pred_dir",
-        type=str
-    )
-    parser.add_argument(
-        "--out_dir",
         type=str,
-        required=False,
-        default=None
-    )
-    parser.add_argument(
-        "--video_fps",
-        type=float,
-        required=False,
-        default=None
+        help="""Path to directory containing VADAnnotation-formatted JSON files.
+Each JSON file containing the prediction results
+of the video anomaly detection. See 'data_schema.VADAnnotation.schema()' or
+'data_schema.VADAnnotation.schema_json()' for the JSON schema."""
     )
     parser.add_argument(
         "--gt_name_suffix",
         type=str,
         required=False,
-        default=""
+        default="",
+        help="Fixed file name suffix, if any. Do not include the file extension."
     )
     parser.add_argument(
         "--pred_name_suffix",
         type=str,
         required=False,
-        default=""
+        default="",
+        help="Fixed file name suffix, if any. Do not include the file extension."
+    )
+    parser.add_argument(
+        "--out_dir",
+        type=str,
+        required=False,
+        default=None,
+        help="""Directory for the video file output.
+If None, then it is the same as 'pred_path' except the extension (mp4)."""
+    )
+    parser.add_argument(
+        "--video_fps",
+        type=float,
+        required=False,
+        default=None,
+        help="""Force frame-rate of the video.
+By default, it will use frame-rate defined in the ground-truth JSON file.
+If frame-rate is not defined in the ground-truth JSON file, then 25 fps will be used."""
     )
     parser.add_argument(
         "--gt_score_maps_root_dir",
         type=str,
         required=False,
-        default=None
+        default=None,
+        help="The root directory for the pixel-level anomaly scores maps files in the ground-truth JSON."
     )
     parser.add_argument(
         "--pred_score_maps_root_dir",
         type=str,
         required=False,
-        default=None
+        default=None,
+        help="The root directory for the pixel-level anomaly scores maps files in the prediction JSON."
     )
     parser.add_argument(
         "--images_root_dir",
         type=str,
         required=False,
-        default=None
+        default=None,
+        help="The root directory for the frame files in the ground-truth JSON."
     )
     parser.add_argument(
         "--line_thickness",
         type=int,
         required=False,
-        default=1
+        default=1,
+        help="Thickness of the line."
     )
     parser.add_argument(
         "--text_scale",
         type=float,
         required=False,
-        default=1.0
+        default=1.0,
+        help="Scale of the text."
     )
     parser.add_argument(
         "--text_thickness",
         type=float,
         required=False,
-        default=1.0
+        default=1.0,
+        help="Thickness of the text."
     )
     parser.add_argument(
         "--overlay_alpha",
         type=float,
         required=False,
-        default=0.4
+        default=0.4,
+        help="Overlay opacity (1 - transparency)."
     )
     parser.add_argument(
         "--threshold",
         type=float,
         required=False,
-        default=0.
+        default=0.,
+        help="""Any score below 'threshold' in the score map will
+totally transparent. When 'show_image' is 'False',
+they will be set to solid white instead.
+If it is bounding boxes, omit bounding boxes that
+have score below 'threshold'."""
     )
     parser.add_argument(
         "--show_image",
         action="store_true",
+        help="Show background image. Frames in the ground-truth file must contain 'frame_filepath'."
     )
     parser.add_argument(
         "--show_progress",
         action="store_true",
+        help="Show progress bar."
     )
     args = parser.parse_args()
     visualize_dir(**vars(args))

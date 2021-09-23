@@ -45,6 +45,6 @@ setup(
     entry_points={
         'console_scripts': [
             'ssvad-visualize=ssvad_metrics:visualizer._visualize_main',
-            'ssvad-visualize-dir=ssvad_metrics:_visualize_dir_main'],
+            'ssvad-visualize-dir=ssvad_metrics:visualizer._visualize_dir_main'],
     }
 )
