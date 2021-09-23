@@ -63,7 +63,9 @@ pip install py-ssvad-metrics
 ## Visual Inspection
 
 We also provide tools for visual inspection for checking the *quality of false positives*.
-See [`ssvad_metrics.visualize`](ssvad_metrics/visualizer.py) or [`ssvad_metrics.visualize_dir`](ssvad_metrics/visualizer.py) for details and usage.
+After installing `py-ssvad-metrics`, the visualizer can be used by executing `ssvad-visualize` or `ssvad-visualize-dir`.
+See `ssvad-visualize --help` or `ssvad-visualize-dir --help` for details and usage.
+Also, see [`ssvad_metrics.visualize`](ssvad_metrics/visualizer.py) or [`ssvad_metrics.visualize_dir`](ssvad_metrics/visualizer.py) for the Python API details and usage.
 Requires FFMPEG installation on the system and `ffmpeg-python` package (**NOT** `python-ffmpeg`).
 FFMPEG is used instead of OpenCV VideoWriter, since the OpenCV packages that are distributed in the PyPI usually does not embed FFMPEG that uis compiled with H264 codec.
 

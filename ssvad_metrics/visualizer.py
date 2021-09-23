@@ -150,7 +150,8 @@ def visualize(
         text_scale: float = 1.0,
         text_thickness: float = 1.0,
         overlay_alpha: float = 0.4,
-        threshold: float = 0.) -> None:
+        threshold: float = 0.,
+        **kwargs) -> str:
     """
     Visualize the single-scene video anomaly detection
     predictions and ground-truths.
@@ -213,6 +214,11 @@ def visualize(
         they will be set to solid white instead.
         If it is bounding boxes, omit bounding boxes that
         have score below `threshold`.
+
+    RETURN
+    ------
+    str
+        Path of the output video.
     """
     if overlay_alpha < 0. or overlay_alpha > 1.:
         raise ValueError("overlay_alpha must be in range [0 .. 1]!")
@@ -287,6 +293,110 @@ def visualize(
     # release video
     vsnk.stdin.close()
     vsnk.wait()
+    return vsnk_p
+
+
+def _visualize_main():
+    import argparse
+    parser = argparse.ArgumentParser(
+        description="""Visualize the single-scene video anomaly detection
+predictions and ground-truths.
+
+Prediction score maps are drawn as an overlay masks with opacity `overlay_alpha`
+using RdYlBu colormap (red for 1.0, blue for 0.0). If predictions are using bounding boxes
+instead, it will be always drawn as red colored bbox with its score. If both are unavailable
+(frame-level only), then the frame-level score will be drawn
+on the bottom-left of the image (P:score).
+
+Ground-truth anomalous maps are drawn as contour lines with green colors.
+If ground-truth are using bounding boxes instead,
+it will be always drawn as green colored bbox.
+If both are unavailable (frame-level only), then the frame-level ground-truth will be drawn
+on the bottom-left of the image (GT:NEG or GT:POS).
+
+Any score below `threshold` in the score map will have 100% transparency.
+Overlay masks will always be drawn as solid colors (no transparency) when `show_image` is `False`.
+Solid white color will be used as a background if `show_image` is `False` and no overlay masks.
+
+The visualization result will be saved as a video file.
+NOTE: requires FFMPEG installation.""",
+        allow_abbrev=True
+    )
+    parser.add_argument(
+        "gt_path",
+        type=str
+    )
+    parser.add_argument(
+        "pred_path",
+        type=str
+    )
+    parser.add_argument(
+        "--out_dir",
+        type=str,
+        required=False,
+        default=None
+    )
+    parser.add_argument(
+        "--video_fps",
+        type=float,
+        required=False,
+        default=None
+    )
+    parser.add_argument(
+        "--gt_score_maps_root_dir",
+        type=str,
+        required=False,
+        default=None
+    )
+    parser.add_argument(
+        "--pred_score_maps_root_dir",
+        type=str,
+        required=False,
+        default=None
+    )
+    parser.add_argument(
+        "--images_root_dir",
+        type=str,
+        required=False,
+        default=None
+    )
+    parser.add_argument(
+        "--line_thickness",
+        type=int,
+        required=False,
+        default=1
+    )
+    parser.add_argument(
+        "--text_scale",
+        type=float,
+        required=False,
+        default=1.0
+    )
+    parser.add_argument(
+        "--text_thickness",
+        type=float,
+        required=False,
+        default=1.0
+    )
+    parser.add_argument(
+        "--overlay_alpha",
+        type=float,
+        required=False,
+        default=0.4
+    )
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        required=False,
+        default=0.
+    )
+    parser.add_argument(
+        "--show_image",
+        action="store_true",
+    )
+    args = parser.parse_args()
+    p = visualize(**vars(args))
+    print("Video file saved into `%s`." % p)
 
 
 def visualize_dir(
@@ -305,10 +415,11 @@ def visualize_dir(
         text_thickness: float = 1.0,
         overlay_alpha: float = 0.4,
         threshold: float = 0.,
-        show_progress: bool = True) -> None:
+        show_progress: bool = True,
+        **kwargs) -> None:
     """
     Visualize the single-scene video anomaly detection
-    predictions.
+    predictions and ground-truths.
 
     Prediction score maps are drawn as an overlay masks with opacity `overlay_alpha`
     using RdYlBu colormap (red for 1.0, blue for 0.0). If predictions are using bounding boxes
@@ -414,3 +525,122 @@ def visualize_dir(
             overlay_alpha=overlay_alpha,
             threshold=threshold
         )
+
+
+def _visualize_dir_main():
+    import argparse
+    parser = argparse.ArgumentParser(
+        description="""Visualize the single-scene video anomaly detection
+predictions and ground-truths.
+
+Prediction score maps are drawn as an overlay masks with opacity `overlay_alpha`
+using RdYlBu colormap (red for 1.0, blue for 0.0). If predictions are using bounding boxes
+instead, it will be always drawn as red colored bbox with its score. If both are unavailable
+(frame-level only), then the frame-level score will be drawn
+on the bottom-left of the image (P:score).
+
+Ground-truth anomalous maps are drawn as contour lines with green colors.
+If ground-truth are using bounding boxes instead,
+it will be always drawn as green colored bbox.
+If both are unavailable (frame-level only), then the frame-level ground-truth will be drawn
+on the bottom-left of the image (GT:NEG or GT:POS).
+
+Any score below `threshold` in the score map will have 100% transparency.
+Overlay masks will always be drawn as solid colors (no transparency) when `show_image` is `False`.
+Solid white color will be used as a background if `show_image` is `False` and no overlay masks.
+
+The visualization result will be saved as a video file.
+NOTE: requires FFMPEG installation.""",
+        allow_abbrev=True
+    )
+    parser.add_argument(
+        "gt_dir",
+        type=str
+    )
+    parser.add_argument(
+        "pred_dir",
+        type=str
+    )
+    parser.add_argument(
+        "--out_dir",
+        type=str,
+        required=False,
+        default=None
+    )
+    parser.add_argument(
+        "--video_fps",
+        type=float,
+        required=False,
+        default=None
+    )
+    parser.add_argument(
+        "--gt_name_suffix",
+        type=str,
+        required=False,
+        default=""
+    )
+    parser.add_argument(
+        "--pred_name_suffix",
+        type=str,
+        required=False,
+        default=""
+    )
+    parser.add_argument(
+        "--gt_score_maps_root_dir",
+        type=str,
+        required=False,
+        default=None
+    )
+    parser.add_argument(
+        "--pred_score_maps_root_dir",
+        type=str,
+        required=False,
+        default=None
+    )
+    parser.add_argument(
+        "--images_root_dir",
+        type=str,
+        required=False,
+        default=None
+    )
+    parser.add_argument(
+        "--line_thickness",
+        type=int,
+        required=False,
+        default=1
+    )
+    parser.add_argument(
+        "--text_scale",
+        type=float,
+        required=False,
+        default=1.0
+    )
+    parser.add_argument(
+        "--text_thickness",
+        type=float,
+        required=False,
+        default=1.0
+    )
+    parser.add_argument(
+        "--overlay_alpha",
+        type=float,
+        required=False,
+        default=0.4
+    )
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        required=False,
+        default=0.
+    )
+    parser.add_argument(
+        "--show_image",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--show_progress",
+        action="store_true",
+    )
+    args = parser.parse_args()
+    visualize_dir(**vars(args))
+    print("Video files saved into `%s`." % args.out_dir)
