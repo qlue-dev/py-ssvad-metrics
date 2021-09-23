@@ -44,7 +44,8 @@ def _draw_frame(
         gt_frm_shp: tuple,
         img: Optional[np.ndarray],
         pred_frm: VADFrame,
-        gt_frm: VADFrame) -> np.ndarray:
+        gt_frm: VADFrame,
+        overlay_opacity: float) -> np.ndarray:
     if img is None:
         img = np.zeros(gt_frm_shp + (3,), dtype=np.uint8)
     # Draw Pred Mask
@@ -58,7 +59,8 @@ def _draw_frame(
                 "defined in the annotation %s!") % (pred_m.shape, pred_frm_shp))
         pred_cm = (cm.RdYlBu(pred_m)[:, :, :3] * 255).astype(np.uint8)
         if show_image:
-            img = cv2.addWeighted(img, 0.6, pred_cm, 0.4, 0)
+            img = cv2.addWeighted(
+                img, 1-overlay_opacity, pred_cm, overlay_opacity, 0)
         else:
             img = pred_cm
     elif pred_frm.anomalous_regions is not None:
@@ -139,12 +141,13 @@ def visualize(
         show_image: bool = True,
         line_thickness: int = 1,
         text_scale: float = 1.0,
-        text_thickness: float = 1.0) -> None:
+        text_thickness: float = 1.0,
+        overlay_opacity: float = 0.4) -> None:
     """
     Visualize the single-scene video anomaly detection
     predictions and ground-truths.
 
-    Prediction score maps are drawn as an overlay masks with transparency 60%
+    Prediction score maps are drawn as an overlay masks with opacity `overlay_opacity`
     using RdYlBu colormap (red for 1.0, blue for 0.0). If predictions are using bounding boxes
     instead, it will be always drawn as red colored bbox with its score. If both are unavailable
     (frame-level only), then the frame-level score will be drawn
@@ -193,7 +196,11 @@ def visualize(
         Scale of the text.
     text_thickness: float = 1.0
         Thickness of the text.
+    overlay_opacity: float = 0.4
+        Overlay opacity (1 - transparency).
     """
+    if overlay_opacity < 0. or overlay_opacity > 1.:
+        raise ValueError("overlay_opacity must be in range [0 .. 1]!")
     with open(gt_path, "r") as fp:
         gts = data_parser(
             json.load(fp), gt_score_maps_root_dir)
@@ -255,7 +262,7 @@ def visualize(
     for img, pred_frm, gt_frm in zip(images, preds.frames, gts.frames):
         img = _draw_frame(
             show_image, line_thickness, text_scale, text_thickness,
-            gts, pred_frm_shp, gt_frm_shp, img, pred_frm, gt_frm)
+            gts, pred_frm_shp, gt_frm_shp, img, pred_frm, gt_frm, overlay_opacity)
         # vsnk.write(img)
         vsnk.stdin.write(
             img
@@ -281,12 +288,13 @@ def visualize_dir(
         line_thickness: int = 1,
         text_scale: float = 1.0,
         text_thickness: float = 1.0,
+        overlay_opacity: float = 0.4,
         show_progress: bool = True) -> None:
     """
     Visualize the single-scene video anomaly detection
     predictions.
 
-    Prediction score maps are drawn as an overlay masks with transparency 60%
+    Prediction score maps are drawn as an overlay masks with opacity `overlay_opacity`
     using RdYlBu colormap (red for 1.0, blue for 0.0). If predictions are using bounding boxes
     instead, it will be always drawn as red colored bbox with its score. If both are unavailable
     (frame-level only), then the frame-level score will be drawn
@@ -341,6 +349,8 @@ def visualize_dir(
         Scale of the text.
     text_thickness: float = 1.0
         Thickness of the text.
+    overlay_opacity: float = 0.4
+        Overlay opacity (1 - transparency).
     show_progress: bool = True
         Show progress bar.
     """
@@ -377,5 +387,6 @@ def visualize_dir(
             show_image=show_image,
             line_thickness=line_thickness,
             text_scale=text_scale,
-            text_thickness=text_thickness
+            text_thickness=text_thickness,
+            overlay_opacity=overlay_opacity
         )
