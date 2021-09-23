@@ -57,7 +57,13 @@ class AnomalousRegion(BaseModel):
 
 class VADFrame(BaseModel):
     frame_id: conint(gt=0)
-    frame_filename: Optional[str] = None
+    frame_filename: Optional[str] = Field(
+        None, description="LEGACY. Filename of the frame.")
+    frame_filepath: Optional[str] = Field(
+        None, description=(
+            "Full path (either relative/absolute) "
+            "to the image file of the frame.")
+    )
     video_time_sec: Optional[PositiveFloat] = None
     anomaly_track_id: Optional[int] = Field(
         None, description=(

@@ -8,7 +8,7 @@ from sklearn.metrics import auc
 
 from ssvad_metrics._utils import mask_iou, trad_pix_calc
 from ssvad_metrics.data_schema import VADAnnotation, VADFrame, load_pixel_score_map
-from ssvad_metrics.utils import anomalous_regions_to_float_mask
+from ssvad_metrics.utils import anomalous_regions_to_float_mask, connected_components
 
 NUM_POINTS = 103
 ANOMALY_SCORE_THRESHOLDS = np.linspace(1.01, -0.01, NUM_POINTS)
@@ -290,8 +290,7 @@ def _get_connected_components(
             "but no 'pixel_level_scores_map' nor 'anomalous_regions' "
             "in frame_id=%d of GT file!") % gt_frm.frame_id)
     gt_m = gt_m.astype(np.bool) * np.uint8(255)
-    gt_num_ccs, gt_cc_labels = cv2.connectedComponents(
-        gt_m, connectivity=8, ltype=cv2.CV_32S)
+    gt_num_ccs, gt_cc_labels = connected_components(gt_m)
 
     if pred_frm.pixel_level_scores_map is not None:
         pred_m = load_pixel_score_map(pred_frm.pixel_level_scores_map)
@@ -304,8 +303,7 @@ def _get_connected_components(
             "but no 'pixel_level_scores_map' nor 'anomalous_regions' "
             "in frame_id=%d of pred file!") % pred_frm.frame_id)
     pred_m = (pred_m >= threshold) * np.uint8(255)
-    pred_num_ccs, pred_cc_labels = cv2.connectedComponents(
-        pred_m, connectivity=8, ltype=cv2.CV_32S)
+    pred_num_ccs, pred_cc_labels = connected_components(pred_m)
 
     return gt_num_ccs, gt_cc_labels, pred_num_ccs, pred_cc_labels
 

@@ -60,6 +60,15 @@ pip install py-ssvad-metrics
 
 1. For more examplles, see [samples folder](samples).
 
+## Visual Inspection
+
+We also provide tools for visual inspection for checking the *quality of false positives*.
+After installing `py-ssvad-metrics`, the visualizer can be used by executing `ssvad-visualize` or `ssvad-visualize-dir`.
+See `ssvad-visualize --help` or `ssvad-visualize-dir --help` for details and usage.
+Also, see [`ssvad_metrics.visualize`](ssvad_metrics/visualizer.py) or [`ssvad_metrics.visualize_dir`](ssvad_metrics/visualizer.py) for the Python API details and usage.
+Requires FFMPEG installation on the system and `ffmpeg-python` package (**NOT** `python-ffmpeg`).
+FFMPEG is used instead of OpenCV VideoWriter, since the OpenCV packages that are distributed in the PyPI usually does not embed FFMPEG that uis compiled with H264 codec.
+
 ## References
 
 1. B. Ramachandra, M. Jones and R. R. Vatsavai, "A Survey of Single-Scene Video Anomaly Detection," in IEEE Transactions on Pattern Analysis and Machine Intelligence, doi: 10.1109/TPAMI.2020.3040591.
