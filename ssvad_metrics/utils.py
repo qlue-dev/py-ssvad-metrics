@@ -3,7 +3,7 @@ from typing import Iterable, List, Tuple
 import cv2
 import numpy as np
 
-from ssvad_metrics._utils import bb_s_to_fp32_mask
+from ssvad_metrics._utils import bb_s_to_fp32_mask, image_compositing
 from ssvad_metrics.data_schema import AnomalousRegion
 
 

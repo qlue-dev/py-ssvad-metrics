@@ -13,7 +13,7 @@ from tqdm import tqdm
 
 from ssvad_metrics.data_schema import (VADAnnotation, VADFrame, data_parser,
                                        load_pixel_score_map)
-from ssvad_metrics.utils import connected_components
+from ssvad_metrics.utils import connected_components, image_compositing
 
 VIDEO_EXT = ".mp4"
 logger = logging.getLogger()
@@ -45,9 +45,10 @@ def _draw_frame(
         img: Optional[np.ndarray],
         pred_frm: VADFrame,
         gt_frm: VADFrame,
-        overlay_opacity: float) -> np.ndarray:
+        overlay_alpha: float,
+        threshold: float) -> np.ndarray:
     if img is None:
-        img = np.zeros(gt_frm_shp + (3,), dtype=np.uint8)
+        img = np.ones(gt_frm_shp + (3,), dtype=np.uint8) * 255
     # Draw Pred Mask
     pred_frm_scr = None
     if pred_frm.pixel_level_scores_map is not None:
@@ -59,12 +60,18 @@ def _draw_frame(
                 "defined in the annotation %s!") % (pred_m.shape, pred_frm_shp))
         pred_cm = (cm.RdYlBu(pred_m)[:, :, :3] * 255).astype(np.uint8)
         if show_image:
-            img = cv2.addWeighted(
-                img, 1-overlay_opacity, pred_cm, overlay_opacity, 0)
+            img_a = np.ones(img.shape[:2], dtype=np.float32)
+            pred_m_a = img_a * overlay_alpha
+            pred_m_a[pred_m < threshold] = 0.
+            img = image_compositing(pred_cm, img, pred_m_a, img_a)
+            img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
         else:
+            pred_cm[pred_m < threshold] = 255
             img = pred_cm
     elif pred_frm.anomalous_regions is not None:
         for ar in pred_frm.anomalous_regions:
+            if ar.score < threshold:
+                continue
             bb = ar.bounding_box
             cv2.rectangle(
                 img, bb[:2], bb[2:], color=(0, 0, 255),
@@ -142,12 +149,13 @@ def visualize(
         line_thickness: int = 1,
         text_scale: float = 1.0,
         text_thickness: float = 1.0,
-        overlay_opacity: float = 0.4) -> None:
+        overlay_alpha: float = 0.4,
+        threshold: float = 0.) -> None:
     """
     Visualize the single-scene video anomaly detection
     predictions and ground-truths.
 
-    Prediction score maps are drawn as an overlay masks with opacity `overlay_opacity`
+    Prediction score maps are drawn as an overlay masks with opacity `overlay_alpha`
     using RdYlBu colormap (red for 1.0, blue for 0.0). If predictions are using bounding boxes
     instead, it will be always drawn as red colored bbox with its score. If both are unavailable
     (frame-level only), then the frame-level score will be drawn
@@ -159,8 +167,9 @@ def visualize(
     If both are unavailable (frame-level only), then the frame-level ground-truth will be drawn
     on the bottom-left of the image (GT:NEG or GT:POS).
 
-    Overlay masks will be drawn as solid colors (no transparency) when `show_image` is `False`.
-    Solid black color will be used if no overlay masks.
+    Any score below `threshold` in the score map will have 100% transparency.
+    Overlay masks will always be drawn as solid colors (no transparency) when `show_image` is `False`.
+    Solid white color will be used as a background if `show_image` is `False` and no overlay masks.
 
     The visualization result will be saved as a video file.
     NOTE: requires FFMPEG installation.
@@ -196,11 +205,17 @@ def visualize(
         Scale of the text.
     text_thickness: float = 1.0
         Thickness of the text.
-    overlay_opacity: float = 0.4
+    overlay_alpha: float = 0.4
         Overlay opacity (1 - transparency).
+    threshold: float = 0.
+        Any score below `threshold` in the score map will
+        have 100% transparency. When `show_image` is `False`,
+        they will be set to solid white instead.
+        If it is bounding boxes, omit bounding boxes that
+        have score below `threshold`.
     """
-    if overlay_opacity < 0. or overlay_opacity > 1.:
-        raise ValueError("overlay_opacity must be in range [0 .. 1]!")
+    if overlay_alpha < 0. or overlay_alpha > 1.:
+        raise ValueError("overlay_alpha must be in range [0 .. 1]!")
     with open(gt_path, "r") as fp:
         gts = data_parser(
             json.load(fp), gt_score_maps_root_dir)
@@ -262,7 +277,7 @@ def visualize(
     for img, pred_frm, gt_frm in zip(images, preds.frames, gts.frames):
         img = _draw_frame(
             show_image, line_thickness, text_scale, text_thickness,
-            gts, pred_frm_shp, gt_frm_shp, img, pred_frm, gt_frm, overlay_opacity)
+            gts, pred_frm_shp, gt_frm_shp, img, pred_frm, gt_frm, overlay_alpha, threshold)
         # vsnk.write(img)
         vsnk.stdin.write(
             img
@@ -288,13 +303,14 @@ def visualize_dir(
         line_thickness: int = 1,
         text_scale: float = 1.0,
         text_thickness: float = 1.0,
-        overlay_opacity: float = 0.4,
+        overlay_alpha: float = 0.4,
+        threshold: float = 0.,
         show_progress: bool = True) -> None:
     """
     Visualize the single-scene video anomaly detection
     predictions.
 
-    Prediction score maps are drawn as an overlay masks with opacity `overlay_opacity`
+    Prediction score maps are drawn as an overlay masks with opacity `overlay_alpha`
     using RdYlBu colormap (red for 1.0, blue for 0.0). If predictions are using bounding boxes
     instead, it will be always drawn as red colored bbox with its score. If both are unavailable
     (frame-level only), then the frame-level score will be drawn
@@ -306,8 +322,9 @@ def visualize_dir(
     If both are unavailable (frame-level only), then the frame-level ground-truth will be drawn
     on the bottom-left of the image (GT:NEG or GT:POS).
 
-    Overlay masks will be drawn as solid colors (no transparency) when `show_image` is `False`.
-    Solid black color will be used if no overlay masks.
+    Any score below `threshold` in the score map will have 100% transparency.
+    Overlay masks will always be drawn as solid colors (no transparency) when `show_image` is `False`.
+    Solid white color will be used as a background if `show_image` is `False` and no overlay masks.
 
     The visualization result will be saved as a video file.
     NOTE: requires FFMPEG installation.
@@ -349,8 +366,14 @@ def visualize_dir(
         Scale of the text.
     text_thickness: float = 1.0
         Thickness of the text.
-    overlay_opacity: float = 0.4
+    overlay_alpha: float = 0.4
         Overlay opacity (1 - transparency).
+    threshold: float = 0.
+        Any score below `threshold` in the score map will
+        have 100% transparency. When `show_image` is `False`,
+        they will be set to solid white instead.
+        If it is bounding boxes, omit bounding boxes that
+        have score below `threshold`.
     show_progress: bool = True
         Show progress bar.
     """
@@ -388,5 +411,6 @@ def visualize_dir(
             line_thickness=line_thickness,
             text_scale=text_scale,
             text_thickness=text_thickness,
-            overlay_opacity=overlay_opacity
+            overlay_alpha=overlay_alpha,
+            threshold=threshold
         )
