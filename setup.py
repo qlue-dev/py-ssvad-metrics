@@ -40,7 +40,8 @@ setup(
         'pydantic>=1.8.1',
         'pandas>=1.1.5',
         'tqdm>=4.58.0',
-        'numba>=0.53.1'],
+        'numba>=0.53.1',
+        'ffmpeg-python=>0.17.1'],
     entry_points={
         'console_scripts': [
             'ssvad-visualize=ssvad_metrics:visualizer._visualize_main',
