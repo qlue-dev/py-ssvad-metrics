@@ -321,8 +321,6 @@ def _get_cur_calcs(
     ntp, tar = 0, 0
     nfp, n_fs = 0, 0
     gt_a_trks, pred_a_trks = {}, {}
-    nat = len(gt_a_trks)
-    ntpt = 0
     # calculate frame-by-frame
     for pred_f, gt_f in zip(pred_frms, gt_frms):
         n_fs += 1
@@ -363,6 +361,8 @@ def _get_cur_calcs(
                     # pred_ar_m do not IoU enough with any gt_ar_m
                     nfp += 1
 
+    nat = len(gt_a_trks)
+    ntpt = 0
     if use_region_mtrc and use_track_mtrc:
         for gt_a_trk, pred_a_trk in zip(gt_a_trks.values(), pred_a_trks.values()):
             _tp = 0
